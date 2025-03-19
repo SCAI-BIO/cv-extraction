@@ -87,7 +87,7 @@ def process_pending_jobs():
                                     "stream": False
                                 },
                                 headers={"Content-Type": "application/json"},
-                                timeout=300  # Increase timeout to 5 minutes
+                                timeout=3000  # Increase timeout to 5 minutes
                             )
                             
                             print(f"API Response Status: {response.status_code}")
@@ -131,7 +131,7 @@ def process_pending_jobs():
                             job_id, 
                             "done",
                             extracted_data=json_data,
-                            excel_file_path=excel_path,
+                            excel_file=excel_path,
                             debug_output={
                                 "model": MODEL_NAME,
                                 "prompt_length": len(prompt),
