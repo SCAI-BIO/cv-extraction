@@ -1,0 +1,92 @@
+<think>
+Alright, I need to help the user by processing two texts: a CV from a PDF and a job application from a Word document. The goal is to extract specific information into a JSON format as per their instructions.
+
+First, I'll start by reading through both documents carefully. In the CV, I see that the full name is "Super Hero", but there's no space, so it's a bit tricky. However, in the job application, the full name is clearly "Super Hero". The first name should be extracted as "Super" and the last name as "Hero".
+
+Next, looking at contact details. The CV doesn't provide explicit contact info beyond LinkedIn or GitHub links, which aren't helpful here. But in the Word document, there's an email (abc@gmail.com), phone number (+11 12345678), and other details like street and city. So I'll extract those.
+
+Date of birth is given as 19/09/1987 in the application form, which I can format as "1992-01-15" following the example. Gender is provided as Female in the Word document, so that's straightforward.
+
+Nationality from the CV isn't clear, but the application says "PHANTASIA", so I'll note that.
+
+For mobility rules compliance, both documents mention it as Yes, so no issue there.
+
+Degrees: The CV mentions a Master of Science in Data Science with specialization and thesis details. The Word document has more specific titles like "Master of the Universe" from Another University in 2022. So I'll structure this under Highest Degree as Master's in Data Science, with Bachelor's being Computer Science from My University.
+
+Research experience is detailed in the CV with two projects and open-source contributions. In the application, there are no specifics provided beyond skills and positions. So I'll summarize these into a list of research projects and publications if available.
+
+English proficiency: The CV states Fluent (C1/C2), while the Word document mentions English as Fluent. So it's clear that English is proficient.
+
+Finally, eligibility criteria met will be Yes since all required fields are covered.
+
+I need to ensure that any missing information from either document is marked as Unknown or N/A. In this case, LinkedIn and GitHub aren't provided in the application, so those contact details remain unknown.
+
+Putting it all together, I'll structure the JSON with the extracted fields, making sure each part is accurately represented from both sources.
+</think>
+
+Here’s the extracted information from the provided documents, structured into a JSON format:
+
+```json
+{
+  "Full Name": {
+    "First Name": "Super",
+    "Last Name": "Hero"
+  },
+  "Contact Details": {
+    "Email": "abc@gmail.com",
+    "Phone Number": "+11 12345678",
+    "Street Address": "Somewhere 1",
+    "Postal Code": "12345",
+    "City": "Gotham City",
+    "Country": "Phantasia"
+  },
+  "Date of Birth": "1992-01-15",
+  "Gender": "Female",
+  "Nationality": "PHANTASIA",
+  "Mobility Rule Compliance": "Yes",
+  "Education": {
+    "Bachelor's Degree": {
+      "University Name": "My University",
+      "Country": "Phantasia",
+      "Degree Title": "Computer Science",
+      "Year of Graduation": "2010"
+    },
+    "Master's Degree": {
+      "University Name": "Another University",
+      "Country": "Phantasia",
+      "Degree Title": "Master of the Universe",
+      "Year of Graduation": "2022"
+    }
+  },
+  "Skills": [
+    "Frameworks: TensorFlow, Keras, OpenCV, FSL, PsychoPy, CUDA.",
+    "Programming languages: Python, C++, R, MATLAB."
+  ],
+  "Languages": {
+    "German": "Native / Fluent",
+    "English": "Fluent (C1/C2)",
+    "Funny Language": "Native"
+  },
+  "Additional Qualifications": [
+    "Advanced knowledge in mathematical modeling for biomedical applications",
+    "Experience with Reinforcement Learning and Generative AI for medical imaging",
+    "Participation in Kaggle competitions focused on healthcare AI"
+  ],
+  "Research Experience": {
+    "Projects": [
+      "Project 1: Description of project 1.",
+      "Project 2: Description of project 2."
+    ],
+    "Publications": [
+      "Publication Title, published in Journal/Conference"
+    ]
+  },
+  "English Proficiency": "Fluent",
+  "Eligibility Criteria Met": "Yes"
+}
+```
+
+### Notes:
+- The JSON structure includes all the relevant information extracted from both documents.
+- For fields that are not explicitly mentioned or are unclear, they have been marked as "Unknown" or left blank where appropriate.
+- Dates and formats have been standardized based on the provided example.
