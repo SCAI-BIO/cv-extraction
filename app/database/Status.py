@@ -1,8 +1,8 @@
 import os
 import time
-import json
 import requests
 import sys
+import logging
 
 # Add parent directory to path to import modules
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -10,6 +10,11 @@ sys.path.append(parent_dir)
 
 from database.db_manager import DatabaseManager
 from Utilities import generate_prompt, get_json, save_json_to_excel
+
+
+logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger(__name__)
 
 # Default values for Ollama API
 DEFAULT_API_URL = "http://localhost:11434/api/generate"
@@ -19,11 +24,8 @@ DEFAULT_MODEL = "deepseek-r1:14b"  # Updated to use deepseek-r1:14b
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", DEFAULT_API_URL)
 MODEL_NAME = os.getenv("OLLAMA_MODEL", DEFAULT_MODEL)
 
-# Print configuration for debugging
-print(f"=== CV Extraction Configuration ===")
-print(f"API URL: {OLLAMA_API_URL}")
-print(f"Model: {MODEL_NAME}")
-print(f"===================================")
+logger.info("=== CV Extraction Configuration ===")
+logger.info(f"Model: {MODEL_NAME}")
 
 # Create extractions directory
 extractions_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "extractions")
