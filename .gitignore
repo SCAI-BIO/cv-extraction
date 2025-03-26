@@ -25,16 +25,3 @@ coverage/
 # Ignore temporary files
 *.tmp
 *.swp
-
-# Ignore compiled Python files
-__pycache__/
-*.pyc
-
-# Ignore database files
-*.db
-
-# Ignore extracted Excel files
-extractions/*.xlsx
-
-# Ignore trial files
-app/trial.py
