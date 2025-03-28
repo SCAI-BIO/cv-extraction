@@ -23,21 +23,24 @@ db = DatabaseManager()
 
 # Default Ollama API URL if not set in .env
 DEFAULT_API_URL = "http://localhost:11434/api/generate"
-DEFAULT_MODEL = "deepseek-r1:14b"  # Using deepseek-r1:14b model
+DEFAULT_MODEL = "mistral"  # Using mistral model
 
 # Load Ollama API URL from environment variable or use default
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", DEFAULT_API_URL)
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", DEFAULT_MODEL)
 
-# Display model information
+# Display model information on the side
 st.sidebar.info(f"Using model: {OLLAMA_MODEL}")
 st.sidebar.info(f"API endpoint: {OLLAMA_API_URL}")
 
-# Create extractions directory if it doesn't exist
+### Create extractions directory if it doesn't exist for the extracted files we can make one for each application
+###with full name
+
 extractions_dir = os.path.join(os.path.dirname(__file__), "extractions")
 os.makedirs(extractions_dir, exist_ok=True)
 
-# Start background processor in a separate thread
+# Start background processor in a separate thread (starts it in the background)
+#demon True to stop if the tool was closed 
 processor_thread = threading.Thread(target=process_pending_jobs, daemon=True)
 processor_thread.start()
 
@@ -65,6 +68,7 @@ with tab1:
         # Process button
         if st.button("Submit Job for Processing"):
             try:
+                #just spinner while loading to avoid pressing it many times
                 with st.spinner("Adding job to queue..."):
                     # Add job to the database with pending status
                     job_id = db.add_job(pdf_file.name, word_file.name, pdf_text, word_text)

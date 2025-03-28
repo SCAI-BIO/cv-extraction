@@ -1,0 +1,183 @@
+[1mdiff --git a/.github/workflows/docker-publish.yaml b/.github/workflows/docker-publish.yaml[m
+[1mindex cbd34cc..80090b0 100644[m
+[1m--- a/.github/workflows/docker-publish.yaml[m
+[1m+++ b/.github/workflows/docker-publish.yaml[m
+[36m@@ -20,10 +20,6 @@[m [mjobs:[m
+         username: ${{ github.actor }}[m
+         password: ${{ secrets.GITHUB_TOKEN }}[m
+ [m
+[31m-    - name: Get Version Tag[m
+[31m-      id: version[m
+[31m-      run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> "$GITHUB_OUTPUT"[m
+[31m-[m
+     - name: Build & push app[m
+       uses: docker/build-push-action@v6[m
+       with:[m
+[36m@@ -32,4 +28,4 @@[m [mjobs:[m
+         push: true[m
+         tags: |[m
+           ghcr.io/scai-bio/cv-extraction/app:latest[m
+[31m-          ghcr.io/scai-bio/cv-extraction/app:${{ steps.version.outputs.VERSION }}[m
+[32m+[m[32m          ghcr.io/scai-bio/cv-extraction/app:${{ steps.version.outputs.VERSION }}[m
+\ No newline at end of file[m
+[1mdiff --git a/.gitignore b/.gitignore[m
+[1mindex 5407d0c..e66063b 100644[m
+[1m--- a/.gitignore[m
+[1m+++ b/.gitignore[m
+[36m@@ -25,14 +25,3 @@[m [mcoverage/[m
+ # Ignore temporary files[m
+ *.tmp[m
+ *.swp[m
+[31m-[m
+[31m-[m
+[31m-# Ignore compiled Python files[m
+[31m-__pycache__/[m
+[31m-*.pyc[m
+[31m-[m
+[31m-# Ignore extraction results[m
+[31m-app/extractions/*.xlsx[m
+[31m-[m
+[31m-# Ignore specific files[m
+[31m-app/trial.py[m
+[1mdiff --git a/app/__pycache__/trial.cpython-312.pyc b/app/__pycache__/trial.cpython-312.pyc[m
+[1mnew file mode 100644[m
+[1mindex 0000000..8a7ad9b[m
+Binary files /dev/null and b/app/__pycache__/trial.cpython-312.pyc differ
+[1mdiff --git a/app/app.py b/app/app.py[m
+[1mindex 284c182..de9dd37 100644[m
+[1m--- a/app/app.py[m
+[1m+++ b/app/app.py[m
+[36m@@ -23,21 +23,24 @@[m [mdb = DatabaseManager()[m
+ [m
+ # Default Ollama API URL if not set in .env[m
+ DEFAULT_API_URL = "http://localhost:11434/api/generate"[m
+[31m-DEFAULT_MODEL = "deepseek-r1:14b"  # Using deepseek-r1:14b model[m
+[32m+[m[32mDEFAULT_MODEL = "mistral"  # Using mistral model[m
+ [m
+ # Load Ollama API URL from environment variable or use default[m
+ OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", DEFAULT_API_URL)[m
+ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", DEFAULT_MODEL)[m
+ [m
+[31m-# Display model information[m
+[32m+[m[32m# Display model information on the side[m
+ st.sidebar.info(f"Using model: {OLLAMA_MODEL}")[m
+ st.sidebar.info(f"API endpoint: {OLLAMA_API_URL}")[m
+ [m
+[31m-# Create extractions directory if it doesn't exist[m
+[32m+[m[32m### Create extractions directory if it doesn't exist for the extracted files we can make one for each application[m
+[32m+[m[32m###with full name[m
+[32m+[m
+ extractions_dir = os.path.join(os.path.dirname(__file__), "extractions")[m
+ os.makedirs(extractions_dir, exist_ok=True)[m
+ [m
+[31m-# Start background processor in a separate thread[m
+[32m+[m[32m# Start background processor in a separate thread (starts it in the background)[m
+[32m+[m[32m#demon True to stop if the tool was closed[m[41m [m
+ processor_thread = threading.Thread(target=process_pending_jobs, daemon=True)[m
+ processor_thread.start()[m
+ [m
+[36m@@ -65,6 +68,7 @@[m [mwith tab1:[m
+         # Process button[m
+         if st.button("Submit Job for Processing"):[m
+             try:[m
+[32m+[m[32m                #just spinner while loading to avoid pressing it many times[m
+                 with st.spinner("Adding job to queue..."):[m
+                     # Add job to the database with pending status[m
+                     job_id = db.add_job(pdf_file.name, word_file.name, pdf_text, word_text)[m
+[1mdiff --git a/app/database/Status.py b/app/database/Status.py[m
+[1mindex 4b8b171..8f44b21 100644[m
+[1m--- a/app/database/Status.py[m
+[1m+++ b/app/database/Status.py[m
+[36m@@ -1,8 +1,8 @@[m
+ import os[m
+ import time[m
+[32m+[m[32mimport json[m
+ import requests[m
+ import sys[m
+[31m-import logging[m
+ [m
+ # Add parent directory to path to import modules[m
+ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))[m
+[36m@@ -11,11 +11,6 @@[m [msys.path.append(parent_dir)[m
+ from database.db_manager import DatabaseManager[m
+ from Utilities import generate_prompt, get_json, save_json_to_excel[m
+ [m
+[31m-[m
+[31m-logging.basicConfig(level=logging.INFO)[m
+[31m-[m
+[31m-logger = logging.getLogger(__name__)[m
+[31m-[m
+ # Default values for Ollama API[m
+ DEFAULT_API_URL = "http://localhost:11434/api/generate"[m
+ DEFAULT_MODEL = "deepseek-r1:14b"  # Updated to use deepseek-r1:14b[m
+[36m@@ -24,8 +19,11 @@[m [mDEFAULT_MODEL = "deepseek-r1:14b"  # Updated to use deepseek-r1:14b[m
+ OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", DEFAULT_API_URL)[m
+ MODEL_NAME = os.getenv("OLLAMA_MODEL", DEFAULT_MODEL)[m
+ [m
+[31m-logger.info("=== CV Extraction Configuration ===")[m
+[31m-logger.info(f"Model: {MODEL_NAME}")[m
+[32m+[m[32m# Print configuration for debugging[m
+[32m+[m[32mprint(f"=== CV Extraction Configuration ===")[m
+[32m+[m[32mprint(f"API URL: {OLLAMA_API_URL}")[m
+[32m+[m[32mprint(f"Model: {MODEL_NAME}")[m
+[32m+[m[32mprint(f"===================================")[m
+ [m
+ # Create extractions directory[m
+ extractions_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "extractions")[m
+[36m@@ -89,7 +87,7 @@[m [mdef process_pending_jobs():[m
+                                     "stream": False[m
+                                 },[m
+                                 headers={"Content-Type": "application/json"},[m
+[31m-                                timeout=300  # Increase timeout to 5 minutes[m
+[32m+[m[32m                                timeout=3000  # Increase timeout to 5 minutes[m
+                             )[m
+                             [m
+                             print(f"API Response Status: {response.status_code}")[m
+[36m@@ -133,7 +131,7 @@[m [mdef process_pending_jobs():[m
+                             job_id, [m
+                             "done",[m
+                             extracted_data=json_data,[m
+[31m-                            excel_file_path=excel_path,[m
+[32m+[m[32m                            excel_file=excel_path,[m
+                             debug_output={[m
+                                 "model": MODEL_NAME,[m
+                                 "prompt_length": len(prompt),[m
+[1mdiff --git a/app/database/__pycache__/Status.cpython-312.pyc b/app/database/__pycache__/Status.cpython-312.pyc[m
+[1mnew file mode 100644[m
+[1mindex 0000000..13c2ac6[m
+Binary files /dev/null and b/app/database/__pycache__/Status.cpython-312.pyc differ
+[1mdiff --git a/app/database/__pycache__/db_manager.cpython-312.pyc b/app/database/__pycache__/db_manager.cpython-312.pyc[m
+[1mnew file mode 100644[m
+[1mindex 0000000..23b019c[m
+Binary files /dev/null and b/app/database/__pycache__/db_manager.cpython-312.pyc differ
+[1mdiff --git a/app/database/cv_data.db b/app/database/cv_data.db[m
+[1mindex f15f6cd..bc094a6 100644[m
+Binary files a/app/database/cv_data.db and b/app/database/cv_data.db differ
+[1mdiff --git a/app/extractions/CV_Data_Science_PhD_results.xlsx b/app/extractions/CV_Data_Science_PhD_results.xlsx[m
+[1mnew file mode 100644[m
+[1mindex 0000000..fd55ffc[m
+Binary files /dev/null and b/app/extractions/CV_Data_Science_PhD_results.xlsx differ
+[1mdiff --git a/app/requirements.txt b/app/requirements.txt[m
+[1mindex a1a055b..8114676 100644[m
+[1m--- a/app/requirements.txt[m
+[1m+++ b/app/requirements.txt[m
+[36m@@ -6,4 +6,5 @@[m [mpandas[m
+ streamlit~=1.32.0[m
+ python-dotenv~=1.0.1[m
+ requests~=2.31.0[m
+[31m-openpyxl~=3.1.2[m
+\ No newline at end of file[m
+[32m+[m[32mopenpyxl~=3.1.2[m
+[41m+[m
+[1mdiff --git a/app/trial.py b/app/trial.py[m
+[1mnew file mode 100644[m
+[1mindex 0000000..b435e1b[m
+[1m--- /dev/null[m
+[1m+++ b/app/trial.py[m
+[36m@@ -0,0 +1,248 @@[m
+[32m+[m[32m# import json[m
+[32m+[m[32m# import re[m
+[32m+[m[32m# import pandas as pd[m
+[32m+[m[32m# from pandas import json_normalize[m
+[32m+[m
+[32m+[m[32m# def get_json(response_tex
