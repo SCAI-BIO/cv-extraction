@@ -7,10 +7,7 @@ from dotenv import load_dotenv
 from Utilities import (
     extract_text_from_pdf,
     extract_text_from_word,
-    generate_prompt,
-    get_json,
-    save_json_to_excel,
-    flatten_json
+    
 )
 from database.db_manager import DatabaseManager
 from database.Status import process_pending_jobs
@@ -44,39 +41,51 @@ os.makedirs(extractions_dir, exist_ok=True)
 processor_thread = threading.Thread(target=process_pending_jobs, daemon=True)
 processor_thread.start()
 
-st.title("CV & Job Application Processor")
-st.write("Upload a CV (PDF) and job application (Word) to extract structured information")
-
 # Add tabs for different functionalities
 tab1, tab2 = st.tabs(["Upload Documents", "View Previous Extractions"])
 
 with tab1:
     # File uploaders for PDF and Word files
-    pdf_file = st.file_uploader("Upload a CV (PDF)", type="pdf")
+    pdf_file = st.file_uploader("Upload a CV (PDF or Word)", type=["pdf", "docx"])
     word_file = st.file_uploader("Upload a Job Application (Word)", type="docx")
 
-    if pdf_file and word_file:
-        # Extract text from both documents
-        pdf_text = extract_text_from_pdf(pdf_file)
-        word_text = extract_text_from_word(word_file)
+    manual_word_text = st.text_area("Or paste the Job Application text here", height=200)
+    st.caption("You can paste the job application instead of uploading a Word document.")
 
-        # Display extracted text
+    if pdf_file and (word_file or manual_word_text):
+        word_text = extract_text_from_word(word_file) if word_file else manual_word_text
+         # Extract text based on file type
+        if pdf_file.name.endswith(".pdf"):
+            pdf_file = extract_text_from_pdf(pdf_file)
+        elif pdf_file.name.endswith(".docx"):
+            pdf_text = extract_text_from_word(pdf_file)
+        else:
+            st.error("Unsupported CV file type. Please upload a PDF or Word document.")
+            pdf_text = ""
+
+
         with st.expander("View Extracted Text"):
             st.text_area("PDF Text", pdf_text, height=200)
-            st.text_area("Word Text", word_text, height=200)
+            st.text_area("Job Application Text", word_text, height=200)
 
-        # Process button
         if st.button("Submit Job for Processing"):
             try:
-                #just spinner while loading to avoid pressing it many times
                 with st.spinner("Adding job to queue..."):
-                    # Add job to the database with pending status
-                    job_id = db.add_job(pdf_file.name, word_file.name, pdf_text, word_text)
+                    job_id = db.add_job(
+                        pdf_file.name,
+                        word_file.name if word_file else "manual_input.txt",
+                        pdf_text,
+                        word_text
+                    )
                     st.success(f"Job {job_id} added to the queue! It will be processed in the background.")
                     st.info("Check the 'View Previous Extractions' tab for updates on processing status.")
-
             except Exception as e:
                 st.error(f"Error adding job to queue: {str(e)}")
+    else:
+        if not pdf_file:
+            st.warning("Please upload a CV (PDF).")
+        elif not (word_file or manual_word_text):
+            st.warning("Please upload a job application (Word) or paste the text manually.")
 
 with tab2:
     st.header("Previous Extractions")
