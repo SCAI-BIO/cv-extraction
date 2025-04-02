@@ -19,71 +19,92 @@ def extract_text_from_word(uploaded_word):
 
 def generate_prompt(pdf_text, word_text):
     return f"""
-        You are given two pieces of text: one from a PDF (CV) and one from a Word document (job application). They contain a person's application details for a PhD or research position in Machine Learning (ML), Deep Learning (DL), and Data Science.
-        Give the extracted and inferred information in JSON format.
+You are a strict data extractor for EU-funded academic job applications.
 
-        #### Your Task:
-        1. Read both texts:
-           - Merge data if one document has fields the other does not.
-           - If any field is missing from both, mark it as "Unknown" or "N/A".
+You are given two raw texts from an applicant:
+1. Their CV (PDF or word format)
+2. Their job application (email or Word format)
 
-        2. Extract these fields:
-        first_name = extract_first_word(full_name)
-        last_name = extract_last_word(full_name)
-        contact_details = extract_contact_details(data)
-        date_of_birth = extract_date_of_birth(data)
-        gender = extract_gender(data)
-        nationality = extract_nationality(data)
-        fits_mobility_rules = check_mobility_rules(data)
-        holds_master_degree = check_master_degree(data)
-        holds_doctoral_degree = check_doctoral_degree(data)
-        english_proficiency = check_english_proficiency(data)
-        
-        4. Final Output:
-           ### Output
-    - Return only a JSON output with:
-      1. Extracted Fields (Name, Contact, Degrees, etc.).
-      2. Research Experience detailed (list or summary).
+Your task is to extract **specific information** and return it as **strict, flat JSON** — with no markdown, code blocks, or extra text and no trailling commas.
+Apply the following extraction rules:
 
-        #### Example JSON (demonstration)
+1. **Mobility Rule**:
+   - This field is based on EU funding eligibility.
+   - If the applicant is **German by nationality** or currently residing in **Germany**, they **do not fit the mobility rule**. In this case, set `"Fits mobility rules?"` to `"No"`.
+
+2. **English Proficiency**:
+   - This must reflect whether the candidate likely meets the program’s minimum language requirement.
+   - Set `"English Proficiency"` to `"Yes"` if **any** of the following is mentioned:
+     - An **IELTS** score of **6.5 or above** (e.g., "IELTS 7", "IELTS 8.0")
+     - A **TOEFL** score of **90 or above** (e.g., "TOEFL 94", "TOEFL iBT 100")
+     - A **language level of C1 or C2** in English.
+
+3. **Doctoral Degree**:
+   - If the applicant **explicitly states** they hold a PhD or doctorate, set `"Holds-Doctoral-Degree"` to `"Yes"`.
+   - If there is **no mention**, assume `"No"`.
+
+4. **Visa Requirement**:
+   - If the applicant's **Nationality** is from a country **outside the European Union (EU)**, set `"Visa required?"` to `"Yes"`.
+   - If they are from an **European Union (EU) member state**, set to `"No"`.
+   - If the nationality is unclear, return `"Please fill this manually"`.
+.
+---
+
+JSON Output Format:
+
+The output **must** contain only the following fields:
+
+- "Full-name"
+- "Date-of-birth"
+- "Gender"
+- "Nationality"
+- "Country-Contact"
+- "E-Mail"
+- "Phone-number"
+- "Holds-Master-Degree"
+- "Year-of-graduation-Master"
+- "Languages"
+- "Skills and competences"
+- "Holds-Doctoral-Degree"
+- "Fits mobility rules?"
+- "English Proficiency?"
+- "Visa required?"
+
+All values must be plain strings. If a value is not mentioned or unclear, use **"Unknown"**.
+
+---
+
+Example Output Format (use exactly this structure):
 
 {{
-"Name": {{
-    "First Name": "John",
-    "Last Name": "Doe"
-}},
-"Contact Information": {{
-    "Email": "john.doe@example.com",
-    "Phone Number": "+123456789"
-}},
-"Date of Birth": "1992-01-15",
-"Gender": "Male",
-"Nationality": "N/A",
-"Highest Degree": "Master's in Data Science",
-"University": {{
-    "Bachelor's": "Example University (2012)",
-    "Master's": "Data Science, Another University (2015)"
-}},
-"Research Experience": {{
-    "Projects": ["Deep Learning for X", "Internship on NLP at Y"],
-    "Publications": ["Co-author on a workshop paper at ICML 2020"]
-}},
-"Mobility Rule Compliance": "Yes",
-"Holds/Will Hold a Master's Degree Before Deadline": "Yes",
-"Holds a Doctoral Degree": "No",
-"English Proficiency": "Yes",
-"Eligibility Criteria Met": "Yes",
+  "Full-name": "Jane Doe",
+  "Date-of-birth": "1993-04-21",
+  "Gender": "Female",
+  "Nationality": "Spanish",
+  "Country-Contact": "Spain",
+  "E-Mail": "jane.doe@example.com",
+  "Phone-number": "+34 123 456 789",
+  "Holds-Master-Degree": "Yes",
+  "Year-of-graduation-Master": "2020",
+  "Languages": "English (C1), Spanish (Native)",
+  "Skills and competences": "Strong communication, excellent analytical skills",
+  "Holds-Doctoral-Degree": "No",
+  "Fits mobility rules?": "Yes",
+  "English Proficiency?": "Yes",
+  "Visa required?": "No"
 }}
-}}
+---
 
-        ### Provided Texts
+Return your output **exactly like this** — no bullet points, no markdown, and no explanation.
 
-        PDF (CV) Content:
-        {pdf_text}
+---
 
-        Word (Application) Content:
-        {word_text}
-    """
+CV Text:
+{pdf_text}
+
+Job Application Text:
+{word_text}
+"""
 
 
 def fix_trailing_commas(json_text):
@@ -184,3 +205,105 @@ def save_json_to_excel(data, filename="extracted_data.xlsx"):
                 df_list.to_excel(writer, sheet_name=key[:30], index=False)  # Limit sheet name to 30 chars
 
     return filename
+
+
+import re
+
+def check_english_proficiency(text):
+    """
+    Checks if English proficiency criteria are met based on:
+    - IELTS score >= 6.5
+    - TOEFL score >= 90
+    - Mention of C1 or C2
+    """
+    text = text.lower()
+
+    # Check for C1 or C2
+    if "c1" in text or "c2" in text:
+        return "Yes"
+
+    # Check IELTS score
+    ielts_match = re.search(r"ielts[^0-9]*((6\.5|[7-9](?:\.5)?))", text)
+    if ielts_match:
+        try:
+            score = float(ielts_match.group(1))
+            if score >= 6.5:
+                return "Yes"
+        except:
+            pass
+
+    # Check TOEFL score
+    toefl_match = re.search(r"toefl[^0-9]*([0-9]{2,3})", text)
+    if toefl_match:
+        try:
+            score = int(toefl_match.group(1))
+            if score >= 90:
+                return "Yes"
+        except:
+            pass
+
+    return "Please fill this manually"
+
+
+def second_agent_rule_engine(llm_data: dict) -> dict:
+    """
+    Transforms LLM output (Agent 1) into validated, interpreted data.
+    You define the rules here.
+    """
+    #Raw fields
+    full_name = llm_data.get("Full-name", "").strip()
+    nationality = llm_data.get("Nationality", "").strip()
+    contact_country = llm_data.get("Country-Contact", "").strip().lower()
+    email = llm_data.get("E-Mail", "")
+    phone = llm_data.get("Phone-number", "")
+    dob = llm_data.get("Date-of-birth", "")
+    gender = llm_data.get("Gender", "")
+    languages = llm_data.get("Languages", "")
+
+    #Rule: Split full name
+    name_parts = full_name.split()
+    first_name = name_parts[0] if name_parts else ""
+    last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
+
+    # Rule: Mobility
+    if "german" in nationality.lower() or "germany" in contact_country:
+        mobility = "No"
+    else:
+        mobility = llm_data.get("Fits mobility rules?", "Unknown")
+
+    # Rule: Master + year
+    master = llm_data.get("Holds-Master-Degree", "Unknown")
+    year_master = llm_data.get("Year-of-graduation-Master", "Unknown")
+    try:
+        master_before_2025 = "Yes" if int(year_master) <= 2025 else "No"
+    except:
+        master_before_2025 = "Unknown"
+
+    # Rule: Doctoral Degree
+    doctoral = llm_data.get("Holds-Doctoral-Degree", "").strip().lower()
+    doctoral = doctoral.capitalize() if doctoral in ["yes", "no"] else "Please fill this manually"
+
+    # Rule: English Proficiency
+    english_proficiency = check_english_proficiency(languages)
+
+    # Rule: Eligibility
+    eligibility = "Yes" if (
+        mobility == "Yes" and master == "Yes" and master_before_2025 == "Yes"
+    ) else "No"
+
+    # Return final row
+    return {
+        "First Name": first_name,
+        "Last Name": last_name,
+        "Email": email,
+        "Phone Number": phone,
+        "Date of Birth": dob,
+        "Gender": gender,
+        "Nationality": nationality,
+        "Mobility Rule Met?": mobility,
+        "Holds Master Degree?": master,
+        "Master Degree Before 2025?": master_before_2025,
+        "Doctoral Degree?": doctoral,
+        "English Proficiency?": english_proficiency,
+        "Eligibility Criteria Met?": eligibility
+    }

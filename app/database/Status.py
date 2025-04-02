@@ -3,6 +3,8 @@ import time
 import requests
 import sys
 import logging
+from Utilities import check_english_proficiency
+
 
 # Add parent directory to path to import modules
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
