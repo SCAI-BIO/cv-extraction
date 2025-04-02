@@ -42,7 +42,7 @@ processor_thread = threading.Thread(target=process_pending_jobs, daemon=True)
 processor_thread.start()
 
 # Add tabs for different functionalities
-tab1, tab2 = st.tabs(["Upload Documents", "View Previous Extractions"])
+tab1, tab2, tab3 = st.tabs(["Upload Documents", "View Previous Extractions","Bulk Upload"])
 
 with tab1:
     # File uploaders for PDF and Word files
@@ -56,7 +56,7 @@ with tab1:
         word_text = extract_text_from_word(word_file) if word_file else manual_word_text
          # Extract text based on file type
         if pdf_file.name.endswith(".pdf"):
-            pdf_file = extract_text_from_pdf(pdf_file)
+            pdf_text = extract_text_from_pdf(pdf_file)
         elif pdf_file.name.endswith(".docx"):
             pdf_text = extract_text_from_word(pdf_file)
         else:
