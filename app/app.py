@@ -189,75 +189,57 @@ with tab2:
                         st.error(f"Error: {debug_output}")
                 elif status in ["pending", "processing"]:
                     st.info("Job is being processed. Please wait or refresh to check the status.")
+
 with tab3:
-    st.header("Bulk Upload (Multiple Applications)")
-    st.caption("Upload matching CVs and Job Applications for batch processing.")
+    st.header("Bulk Upload (Multiple CV + Application Pairs)")
+    st.caption("Upload files in pairs: one CV (.pdf/.docx) and one application (.docx). Each pair will be processed as one job.")
 
-    # Upload CV files
-    cv_files = st.file_uploader("Upload CVs (PDF or DOCX)", type=["pdf", "docx"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Upload Files (PDF + DOCX)", type=["pdf", "docx"], accept_multiple_files=True)
 
-    # Upload Job Application files or paste job application text
-    app_files = st.file_uploader("Upload Job Applications (DOCX only)", type=["docx"], accept_multiple_files=True)
-    manual_word_text = st.text_area("Or paste the Job Application text here for all CVs", height=200)
-    st.caption("You can paste a common job application instead of uploading individual Word documents.")
-
-    if st.button("Submit Bulk Jobs for Processing"):
-        if not cv_files or (not app_files and not manual_word_text):
-            st.error("Please upload CVs and Applications or provide pasted text.")
+    if st.button("Submit Jobs from Uploaded Pairs"):
+        if not uploaded_files or len(uploaded_files) < 2:
+            st.warning("Please upload at least two files (one CV and one application).")
         else:
-            try:
-                with st.spinner("Matching and submitting jobs..."):
-                    def get_key(file): return file.name.split('.')[0].split('_')[0].lower()
-                    cv_map = {get_key(f): f for f in cv_files}
-                    app_map = {get_key(f): f for f in app_files}
+            submitted = 0
+            unmatched = []
 
-                    matched_keys = set(cv_map.keys()) & set(app_map.keys()) if app_files else set(cv_map.keys())
+            # Group files in sets of two
+            for i in range(0, len(uploaded_files), 2):
+                pair = uploaded_files[i:i+2]
+                if len(pair) != 2:
+                    unmatched.append(pair[0].name)
+                    continue
 
-                    if not matched_keys:
-                        st.error("No matching filename pairs found (e.g., john_cv.pdf and john_app.docx).")
-                        st.stop()
+                # Identify CV and application
+                cv_file = next((f for f in pair if f.name.lower().endswith(".pdf") or f.name.lower().endswith(".docx")), None)
+                app_file = next((f for f in pair if f.name.lower().endswith(".docx")), None)
 
-                    submitted = 0
-                    for key in matched_keys:
-                        cv_file = cv_map[key]
-                        app_file = app_map.get(key)
+                if not cv_file or not app_file:
+                    unmatched.extend([f.name for f in pair])
+                    continue
 
-                        # Extract text from CV
-                        if cv_file.name.endswith(".pdf"):
-                            pdf_text = extract_text_from_pdf(cv_file)
-                        else:
-                            pdf_text = extract_text_from_word(cv_file)
+                try:
+                    pdf_text = extract_text_from_pdf(cv_file) if cv_file.name.endswith(".pdf") else extract_text_from_word(cv_file)
+                    word_text = extract_text_from_word(app_file)
 
-                        # Handle job application text (either uploaded or pasted)
-                        if app_file:
-                            word_text = extract_text_from_word(app_file)
-                        else:
-                            # If no app file, use pasted text
-                            word_text = manual_word_text
+                    db.add_job(
+                        pdf_filename=cv_file.name,
+                        word_filename=app_file.name,
+                        pdf_content=pdf_text,
+                        word_content=word_text
+                    )
 
-                        # Save the job application text as a file (if necessary)
-                        if not app_file:  # For manual text, save as a unique file
-                            manual_text_file = f"{key}_job_application.txt"
-                            with open(manual_text_file, "w") as f:
-                                f.write(word_text)
-                            app_file = manual_text_file
+                    preview = word_text[:40].replace("\n", " ") + ("..." if len(word_text) > 40 else "")
+                    st.success(f"Job submitted: {cv_file.name} + {app_file.name}\nPreview: {preview}")
+                    submitted += 1
+                except Exception as e:
+                    st.error(f"Failed to process files: {cv_file.name}, {app_file.name}\nReason: {e}")
+                    continue
 
-                        # Add the job to the database
-                        db.add_job(
-                            pdf_filename=cv_file.name,
-                            word_filename=app_file.name if isinstance(app_file, str) else app_file.name,
-                            pdf_content=pdf_text,
-                            word_content=word_text
-                        )
-                        
-                        # Show preview of job application text (first 20 characters)
-                        preview_text = word_text[:20] + ("..." if len(word_text) > 20 else "")
-                        st.write(f"**{cv_file.name}** - **Job Application Preview:** {preview_text}")
-                        
-                        submitted += 1
+            if unmatched:
+                st.warning(f"Some files were skipped: {', '.join(unmatched)}")
 
-                    st.success(f"{submitted} jobs added to the queue!")
-                    st.info("They will be processed in the background. Check 'Previous Extractions' tab for status.")
-
-            except Exception as e:
-                st.error(f"Bulk processing failed: {str(e)}")
+            if submitted:
+                st.info(f"{submitted} job(s) added to the queue.")
+            else:
+                st.warning("No valid file pairs were submitted.")
