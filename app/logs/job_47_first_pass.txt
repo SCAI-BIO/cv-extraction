@@ -1,0 +1,82 @@
+<think>
+Okay, I need to extract specific information from the provided applicant's materials and format it into a JSON output following strict rules. Let me go through each step carefully.
+
+First, looking at the job application text, there are several fields that can be directly extracted:
+
+1. **Full-name**: It's given as "Super Hero".
+2. **Date-of-birth**: The format is DD/MM/YYYY, which I should convert to YYYY-MM-DD. So 19/09/1987 becomes "1987-09-19".
+3. **Gender**: It's specified as Female.
+4. **Nationality**: PHANTASIA.
+5. **Country-Contact**: Since the applicant is from Phantasia, this should be "Phantasia".
+6. **E-Mail**: abc@gmail.com.
+7. **Phone-number**: +11 12345678.
+
+Next, checking for mobility compliance, it's marked as Yes. So:
+
+8. **Mobility-rule-compliance**: Yes.
+
+From the job application form, there's a section about their education:
+
+9. **Bachelor details**:
+   - University: My University
+   - Degree title: Computer Science
+   - Year of graduation: 2010
+
+10. **Master details**:
+    - University: Another University
+    - Degree title: Master of the Universe
+    - Year of graduation: 2022
+
+Looking at the CV and additional info:
+
+11. **Skills**: The applicant has frameworks like TensorFlow, Keras, OpenCV, FSL, PsychoPy, CUDA.
+12. **Programming languages**: Python, C++, R, MATLAB.
+
+Regarding languages:
+
+13. **Languages**: They speak Funny Language natively and English (Fluent). Since English is Fluent, it's categorized as C1/C2 level.
+
+Other considerations:
+
+- The applicant's nationality is Phantasia, which isn't in the EU/EEA or Switzerland. However, since they're applying for a position that requires compliance with mobility rules, but in this case, it's marked as Yes.
+
+Now, I need to structure all these into the JSON format provided earlier, ensuring all fields are correctly filled and any missing information is marked as N/A where applicable.
+</think>
+
+```json
+{
+  "Full-name": "Super Hero",
+  "Date-of-birth": "1987-09-19",
+  "Gender": "Female",
+  "Nationality": "Phantasia",
+  "Country-Contact": "Phantasia",
+  "E-Mail": "abc@gmail.com",
+  "Phone-number": "+11 12345678",
+  "Mobility-rule-compliance": "Yes",
+  "Bachelor University": "My University",
+  "Bachelor Degree title": "Computer Science",
+  "Year-of-graduation-Bachelor": 2010,
+  "Master University": "Another University",
+  "Master Degree title": "Master of the Universe",
+  "Year-of-graduation-Master": 2022,
+  "Skills": [
+    "TensorFlow",
+    "Keras",
+    "OpenCV",
+    "FSL",
+    "PsychoPy",
+    "CUDA"
+  ],
+  "Programming-languages": [
+    "Python",
+    "C++",
+    "R",
+    "MATLAB"
+  ],
+  "Languages": {
+    "Funny Language": "Native/Fluent",
+    "English": "Fluent (C1/C2)"
+  },
+  "Additional-Information": "N/A"
+}
+```

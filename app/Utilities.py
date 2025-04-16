@@ -19,7 +19,7 @@ def extract_text_from_word(uploaded_word):
 
 def generate_prompt(pdf_text, word_text):
     return f"""
-You are a data AI and you answer questions based on the text provided for academic job applications return the answer for these information ignore his address
+You are a data AI and you answer questions and return answers in json format with no trailing commas and no marksdown based on the text provided for academic job applications return the answer for these information ignore his address
 just mention what is asked from you
 
 
@@ -73,8 +73,7 @@ The output **must** contain only the following fields:
 - "English Proficiency?"
 - "Visa required?"
 
-All values must be plain strings. If a value is not mentioned or unclear, use **"Unknown"**.
-
+Output should be in json format.
 ---
 
 Example Output Format (use exactly this structure):
@@ -94,7 +93,7 @@ Example Output Format (use exactly this structure):
   "Holds-Doctoral-Degree": "No",
   "Fits mobility rules?": "Yes",
   "English proficiency?": "Yes",
-  "Research Experience"
+  "Research Experience": Alyehimer disease invistigation, Parkinson disease and lewi bodies
   
 }}
 ---
@@ -366,7 +365,7 @@ def append_to_master_excel(json_data, master_path, start_row=7):
 
 def build_refinement_prompt(initial_json, pdf_text, word_text):
     return f"""
-You are an AI that edits and completes structured applicant data in JSON format.
+You are an AI that edits and completes structured applicant data and return it in json format that what you need to focus on.
 
 You are given:
 1. A partially filled JSON object (initial_json)
@@ -435,3 +434,85 @@ CV Text:
 Job Application Text:
 {word_text}
 """
+
+
+def extract_combined_headers(ws, header_rows=[4, 5, 6]):
+    headers = []
+    max_col = ws.max_column
+    for col in range(1, max_col + 1):
+        combined = []
+        for row in header_rows:
+            val = ws.cell(row=row, column=col).value
+            if val:
+                combined.append(str(val).strip())
+        headers.append(" ".join(combined).strip() if combined else None)
+    return headers
+
+
+def standardize_row_to_template(row):
+    output = {}
+    try:
+        full_name = row.get("Full-name") or row.get("Name") or row.get("full_name") or ""
+        parts = full_name.strip().split()
+        output["First Name"] = parts[0] if parts else ""
+        output["Last Name"] = " ".join(parts[1:]) if len(parts) > 1 else ""
+
+        field_map = {
+            "Gender": ["Gender", "gender"],
+            "Date of birth": ["Date-of-birth", "dob", "date_of_birth"],
+            "Nationality": ["Nationality", "Country-Contact", "Country"],
+            "Contact details (e.g. email)": ["email", "E-Mail", "Email"],
+            "Phone number": ["phone_number", "Phone", "Phone-number"],
+            "Fits mobility rules? (...)": ["Mobility-rule-compliance", "Fits mobility rules?"],
+            "Holds doctoral degree?": ["Holds-Doctoral-Degree"],
+            "Visa required?": ["Visa_required", "Visa required?"],
+        }
+
+        for field, keys in field_map.items():
+            output[field] = next((row[k] for k in keys if k in row and row[k]), "Filled manually")
+
+        # Skills
+        skills = [str(v).strip() for k, v in row.items() if "skill" in k.lower()]
+        output["Skills and Competencies  (Max 5 Points)"] = "; ".join(skills) if skills else "Filled manually"
+
+        # Research experience
+        research = [str(row[k]) for k in ["Research Experience", "Internships", "Projects"] if k in row and row[k]]
+        output["Research Experience (Max 5 Points)"] = "; ".join(research) if research else "Filled manually"
+
+        # English proficiency
+        lang = " ".join(str(row.get(k, "")).lower() for k in row if "english" in k.lower() or "language" in k.lower())
+        keywords = ["english", "fluent", "native", "c1", "c2", "ielts", "toefl", "duolingo", "pte"]
+        output["English proficiency"] = "Yes" if any(k in lang for k in keywords) else "No"
+
+    except Exception as e:
+        print(f"Standardization error: {e}")
+    return output
+
+
+def inject_standardized_json_to_excel(json_data, template_path, output_path):
+    if not os.path.exists(output_path):
+        # If output doesn't exist, copy the template as the base
+        import shutil
+        shutil.copy(template_path, output_path)
+
+    wb = openpyxl.load_workbook(output_path)
+    ws = wb.active
+
+    headers = extract_combined_headers(ws)
+    standardized_row = standardize_row_to_template(json_data)
+    norm_row = {k.lower().strip(): v for k, v in standardized_row.items()}
+
+    # Start inserting after headers (assume headers are rows 4–6)
+    insert_row_index = 7
+    while ws.cell(row=insert_row_index, column=1).value:
+        insert_row_index += 1
+
+    for col_idx, header in enumerate(headers, 1):
+        if not header:
+            ws.cell(row=insert_row_index, column=col_idx, value="Filled manually")
+            continue
+        norm_header = header.lower().strip()
+        value = norm_row.get(norm_header, "Filled manually")
+        ws.cell(row=insert_row_index, column=col_idx, value=value)
+
+    wb.save(output_path)

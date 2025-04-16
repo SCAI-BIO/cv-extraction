@@ -2,9 +2,15 @@ import os
 import time
 import requests
 import sys
-import logging
-from Utilities import build_refinement_prompt
+from dotenv import load_dotenv
 
+from Utilities import (
+    generate_prompt,
+    get_json,
+    save_json_to_excel,
+    build_refinement_prompt,
+    inject_standardized_json_to_excel
+)
 
 # Add parent directory to path to import modules
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -12,36 +18,35 @@ sys.path.append(parent_dir)
 
 from shared_database import db
 
-from Utilities import generate_prompt, get_json, save_json_to_excel
+# Load environment
+load_dotenv()
 
-
-logging.basicConfig(level=logging.INFO)
-
-logger = logging.getLogger(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+EXCEL_REL_PATH = os.getenv("EXCEL_FILE_PATH", "extractions/Final_Applications_Export.xlsx")
+EXCEL_PATH = os.path.normpath(os.path.join(BASE_DIR, "..", EXCEL_REL_PATH))
 
 # Default values for Ollama API
 DEFAULT_API_URL = "http://localhost:11434/api/generate"
-DEFAULT_MODEL = "deepseek-r1:14b"  # Updated to use deepseek-r1:14b
+DEFAULT_MODEL = "deepseek-r1:14b"
 
-# Load Ollama API URL from environment variable or use default
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", DEFAULT_API_URL)
 MODEL_NAME = os.getenv("OLLAMA_MODEL", DEFAULT_MODEL)
-
-logger.info("=== CV Extraction Configuration ===")
-logger.info(f"Model: {MODEL_NAME}")
 
 # Create extractions directory
 extractions_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "extractions")
 os.makedirs(extractions_dir, exist_ok=True)
 
+# Create debug output directory for raw responses
+debug_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
+os.makedirs(debug_dir, exist_ok=True)
+
 # Maximum retries before marking a job as failed
 MAX_RETRIES = 3
 
 def process_pending_jobs():
-    """Background job processor that handles pending extraction jobs."""
     print(f"Starting background job processor... Using model: {MODEL_NAME}")
     print(f"API endpoint: {OLLAMA_API_URL}")
-    
+
     while True:
         try:
             pending_jobs = db.get_pending_jobs()
@@ -87,12 +92,16 @@ def process_pending_jobs():
                         if not response_text:
                             raise ValueError("Empty response from LLM API")
 
+                        # Save full first-pass response to file
+                        with open(os.path.join(debug_dir, f"job_{job_id}_first_pass.txt"), "w", encoding="utf-8") as f:
+                            f.write(response_text)
+
                         print(f"First pass complete. Running refinement...")
 
-                        #First-pass JSON
+                        # First-pass JSON
                         initial_json = response_text.strip()
 
-                        #Run Second-Pass Refinement
+                        # Run Second-Pass Refinement
                         refinement_prompt = build_refinement_prompt(initial_json, pdf_text, word_text)
                         refine_response = requests.post(
                             api_url,
@@ -113,22 +122,26 @@ def process_pending_jobs():
                         if not refined_text:
                             raise ValueError("Empty refinement response")
 
+                        # Save full second-pass response to file
+                        with open(os.path.join(debug_dir, f"job_{job_id}_second_pass.txt"), "w", encoding="utf-8") as f:
+                            f.write(refined_text)
+
+                        print("Second pass complete. Parsing response...")
+
                         # Final clean JSON
                         json_data = get_json(refined_text)
                         if not json_data:
                             raise ValueError("No valid JSON extracted from second-pass response")
 
-                        #Save to Excel
-                        excel_filename = f"extraction_{job_id}_{pdf_filename.replace('.pdf', '')}.xlsx"
-                        excel_path = os.path.join(extractions_dir, excel_filename)
-                        save_json_to_excel(json_data, excel_path)
+                        # Inject into pre-made master Excel file
+                        inject_standardized_json_to_excel(json_data, EXCEL_PATH, EXCEL_PATH)
 
                         # Save successful job
                         db.update_job_status(
                             job_id, 
                             "done",
                             extracted_data=json_data,
-                            excel_file=excel_path,
+                            excel_file=EXCEL_PATH,
                             debug_output={
                                 "model": MODEL_NAME,
                                 "prompt_length": len(prompt),
