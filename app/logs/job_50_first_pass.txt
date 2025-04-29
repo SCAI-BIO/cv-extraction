@@ -1,0 +1,91 @@
+<think>
+Okay, I need to extract specific information from the provided applicant's CV and job application to form a JSON output as per the given rules. Let me go through each section step by step.
+
+First, looking at the Job Application text, it's filled out with specific details. The Full-name is "Super Hero", Date-of-birth is 19/09/1987, Gender is Female, Nationality is PHANTASIA. Country-Contact is also PHANTASIA. E-Mail is abc@gmail.com, Phone-number is +11 12345678.
+
+Mobility-rule-compliance is Yes, so "Fits mobility rules?" should be set to "Yes".
+
+For English Proficiency, in the CV under Languages: English is listed as Fluent (C1/C2), which meets the criteria. So "English proficiency?" is "Yes".
+
+Looking at the Education section in the job application: Bachelor's degree from My University in Phantasia, 2010; Master's from Another University, same country, 2022. The Degree titles are Computer Science and Master of the Universe. So I'll note those as Qualification details.
+
+Programming languages mentioned are Python, C++, R, MATLAB, plus TensorFlow, Keras, OpenCV, FSL, PsychoPy, CUDA in Skills. Languages include Funny Language (native) and English (C1/C2).
+
+Now, checking if the applicant has a PhD: The CV mentions Bachelor and Master's but no PhD listed. So "Has-PhD?" should be No.
+
+Looking at work experience: There are internships mentioned, so I'll list them under Work Experience with descriptions. Publications aren't detailed here, so maybe leave that empty or note if any exist.
+
+Other qualifications include advanced knowledge in mathematical modeling and participation in Kaggle competitions. So those can be added to Additional Qualifications.
+
+Now, mapping all this into the JSON structure as per the instructions, making sure each field is correctly labeled and values are accurate.
+</think>
+
+```json
+{
+  "Full-name": "Super Hero",
+  "Date-of-birth": "19/09/1987",
+  "Gender": "Female",
+  "Nationality": "PHANTASIA",
+  "Country-Contact": "Phantasia",
+  "E-Mail": "abc@gmail.com",
+  "Phone-number": "+11 12345678",
+  
+  "Mobility-rule-compliance": "Yes",
+  
+  "English-proficiency?": "Yes",
+  
+  "Qualification-details": {
+    "Bachelor": {
+      "University-name": "My University",
+      "Country": "Phantasia",
+      "Degree-title": "Computer Science",
+      "Year-of-graduation": 2010
+    },
+    "Master": {
+      "University-name": "Another University",
+      "Country": "Phantasia",
+      "Degree-title": "Master of the Universe",
+      "Year-of-graduation": 2022
+    }
+  },
+  
+  "Programming-languages": ["Python", "C++", "R", "MATLAB"],
+  "Skills": [
+    "TensorFlow",
+    "Keras",
+    "OpenCV",
+    "FSL",
+    "PsychoPy",
+    "CUDA"
+  ],
+  "Languages": {
+    "Funny Language": "Native/Fluent",
+    "English": "C1/C2"
+  },
+  
+  "Has-PhD?": "No",
+  
+  "Work-Experience": [
+    {
+      "Position": "Data Science / Machine Learning Engineer Intern",
+      "Company": "[Company]",
+      "Time-period": "[Time Period]",
+      "Description": "Developed and evaluated machine learning models for biomedical signal analysis; Implemented scalable data pipelines in cloud environments"
+    },
+    {
+      "Position": "Research Internship",
+      "Institute/University": "[Institute / University]",
+      "Time-period": "[Time Period]",
+      "Description": "Assisted in academic publications on AI in healthcare; Conducted statistical analyses of clinical trial data"
+    }
+  ],
+  
+  "Publications-Conferences": [],
+  
+  "Additional-qualifications": [
+    "Advanced knowledge in mathematical modeling for biomedical applications",
+    "Experience with Reinforcement Learning and Generative AI for medical imaging",
+    "Participation in Kaggle competitions focused on healthcare AI"
+  ]
+}
+```

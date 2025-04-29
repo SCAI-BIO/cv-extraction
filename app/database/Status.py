@@ -3,12 +3,11 @@ import time
 import requests
 import sys
 from dotenv import load_dotenv
-
+import shutil
 from Utilities import (
     generate_prompt,
     get_json,
     save_json_to_excel,
-    build_refinement_prompt,
     inject_standardized_json_to_excel
 )
 
@@ -22,7 +21,10 @@ from shared_database import db
 load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-EXCEL_REL_PATH = os.getenv("EXCEL_FILE_PATH", "extractions/Final_Applications_Export.xlsx")
+
+############ Look here is the path correct?############
+
+EXCEL_REL_PATH = os.getenv("EXCEL_FILE_PATH", "extractions/ExcelTemplate.xlsx")
 EXCEL_PATH = os.path.normpath(os.path.join(BASE_DIR, "..", EXCEL_REL_PATH))
 
 # Default values for Ollama API
@@ -42,6 +44,26 @@ os.makedirs(debug_dir, exist_ok=True)
 
 # Maximum retries before marking a job as failed
 MAX_RETRIES = 3
+
+# Go up from /app/database to /app
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+EXTRACTIONS_DIR = os.path.join(BASE_DIR, "extractions")
+TEMPLATE_EXCEL_PATH = os.path.join(EXTRACTIONS_DIR, "ExcelTemplate.xlsx")
+EXCEL_PATH = os.path.join(EXTRACTIONS_DIR, "extracted_data.xlsx")
+
+# Debug
+print("TEMPLATE PATH:", TEMPLATE_EXCEL_PATH)
+
+if not os.path.exists(TEMPLATE_EXCEL_PATH):
+    raise FileNotFoundError(f"ExcelTemplate.xlsx not found at: {TEMPLATE_EXCEL_PATH}")
+
+os.makedirs(EXTRACTIONS_DIR, exist_ok=True)
+if not os.path.exists(EXCEL_PATH):
+    shutil.copy(TEMPLATE_EXCEL_PATH, EXCEL_PATH)
+
+
+# --- Main Processing Function ---
 
 def process_pending_jobs():
     print(f"Starting background job processor... Using model: {MODEL_NAME}")
@@ -81,7 +103,7 @@ def process_pending_jobs():
                                 "stream": False
                             },
                             headers={"Content-Type": "application/json"},
-                            timeout=3000
+                            timeout=300
                         )
 
                         if response.status_code != 200:
@@ -92,49 +114,19 @@ def process_pending_jobs():
                         if not response_text:
                             raise ValueError("Empty response from LLM API")
 
-                        # Save full first-pass response to file
-                        with open(os.path.join(debug_dir, f"job_{job_id}_first_pass.txt"), "w", encoding="utf-8") as f:
-                            f.write(response_text)
+                        print(f"First pass complete. Parsing response...")
 
-                        print(f"First pass complete. Running refinement...")
-
-                        # First-pass JSON
-                        initial_json = response_text.strip()
-
-                        # Run Second-Pass Refinement
-                        refinement_prompt = build_refinement_prompt(initial_json, pdf_text, word_text)
-                        refine_response = requests.post(
-                            api_url,
-                            json={
-                                "model": MODEL_NAME,
-                                "prompt": refinement_prompt,
-                                "stream": False
-                            },
-                            headers={"Content-Type": "application/json"},
-                            timeout=3000
-                        )
-
-                        if refine_response.status_code != 200:
-                            raise Exception(f"Refinement failed: {refine_response.status_code}: {refine_response.text}")
-
-                        refined_text = refine_response.json().get("response", "").strip()
-
-                        if not refined_text:
-                            raise ValueError("Empty refinement response")
-
-                        # Save full second-pass response to file
-                        with open(os.path.join(debug_dir, f"job_{job_id}_second_pass.txt"), "w", encoding="utf-8") as f:
-                            f.write(refined_text)
-
-                        print("Second pass complete. Parsing response...")
-
-                        # Final clean JSON
-                        json_data = get_json(refined_text)
+                        # Extract final clean JSON
+                        json_data = get_json(response_text.strip())
                         if not json_data:
-                            raise ValueError("No valid JSON extracted from second-pass response")
+                            raise ValueError("No valid JSON extracted from response")
 
-                        # Inject into pre-made master Excel file
-                        inject_standardized_json_to_excel(json_data, EXCEL_PATH, EXCEL_PATH)
+                        # Inject data into the shared Master Excel
+                        inject_standardized_json_to_excel(
+                            json_data=json_data,
+                            template_path=EXCEL_PATH,   # using same Excel
+                            output_path=EXCEL_PATH
+                        )
 
                         # Save successful job
                         db.update_job_status(
@@ -145,7 +137,7 @@ def process_pending_jobs():
                             debug_output={
                                 "model": MODEL_NAME,
                                 "prompt_length": len(prompt),
-                                "response_length": len(refined_text),
+                                "response_length": len(response_text),
                                 "raw_response": response_text
                             }
                         )

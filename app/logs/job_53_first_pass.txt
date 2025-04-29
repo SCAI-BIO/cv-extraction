@@ -1,0 +1,79 @@
+<think>
+Alright, let's tackle this problem step by step. The user has provided two documents: a CV and a job application form. My task is to extract specific information from these and format it into a JSON structure as per the given rules.
+
+First, I need to understand what exactly needs to be extracted. From the job application text, there's a section called "Mobility-rule-compliance" which clearly states "Yes". That should go under "mobilityRuleCompliance".
+
+Looking at the CV, the education section mentions a Master of Science in Data Science with a specialization in relevant fields and a thesis. The final grade isn't specified, so I'll note that as "[Grade]". Bachelor's degree is also mentioned, but since the job application already provides detailed education info, I might not need to pull more from the CV unless there are additional details.
+
+The programming skills in the CV include Python, R, SQL, C++, and technical skills like Apache Spark, Hadoop, etc. However, the job application's skills section lists TensorFlow, Keras, OpenCV, FSL, PsychoPy, CUDA. I'll focus on the job application for skills as it seems more relevant.
+
+Languages in the CV show English as Fluent (C1/C2), which is crucial since the user mentioned a requirement for C1 or higher. In the job application, languages include Funny Language and English, but only English is relevant here.
+
+Looking at work experience and research projects, they involve machine learning models in healthcare, which aligns with the career objective in the CV. However, the JSON doesn't require detailed work history unless specified.
+
+The job application also mentions mobility rule compliance as "Yes", so that's straightforward. The education details from the job app include universities, degrees, and graduation years.
+
+Putting it all together, I'll structure the JSON with the required fields: full-name, date-of-birth, nationality, country-contact, email, phone, mobility-rule-compliance, languages (only English), skills, and education details from both documents. The CV's additional info like programming and research can be included under "additional-info" as per instructions.
+
+I need to ensure all required fields are present and correctly mapped. For example, the languages section should only include English with the C1/C2 level. Skills will be a list from the job application. Education details will combine both sources, noting that the Master's is in Data Science from Another University in Phantasia.
+
+Finally, I'll format it all into JSON without any markdown, as per the user's request.
+</think>
+
+Here is the extracted information formatted according to your requirements:
+
+```json
+{
+  "full-name": "Super Hero",
+  "date-of-birth": "19/09/1987",
+  "nationality": "PHANTASIA",
+  "country-contact": "Phantasia",
+  "email": "abc@gmail.com",
+  "phone-number": "+11 12345678",
+  "mobility-rule-compliance": "Yes",
+  "languages": [
+    {
+      "language": "English",
+      "level": "C1/C2"
+    }
+  ],
+  "skills": [
+    "TensorFlow",
+    "Keras",
+    "OpenCV",
+    "FSL",
+    "PsychoPy",
+    "CUDA"
+  ],
+  "education": [
+    {
+      "degree": "Bachelor of Science in Computer Science",
+      "university": "My University",
+      "country": "Phantasia",
+      "year-of-graduation": "2010"
+    },
+    {
+      "degree": "Master of the Universe",
+      "university": "Another University",
+      "country": "Phantasia",
+      "year-of-graduation": "2022"
+    }
+  ],
+  "additional-info": {
+    "programming-languages": ["Python", "C++", "R", "MATLAB"],
+    "specialization": "Machine Learning, Deep Learning, Statistics, Big Data Analytics",
+    "research-interests": [
+      "Predictive models for biomedical imaging data",
+      "Precision medicine using genomic and clinical data"
+    ],
+    "publications": [
+      {
+        "title": "[Publication Title]",
+        "journal/conference": "[Journal/Conference]"
+      }
+    ]
+  }
+}
+```
+
+This JSON structure includes all the required fields as per your instructions, with additional information extracted from both the CV and job application text.

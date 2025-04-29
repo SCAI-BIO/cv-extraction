@@ -1,0 +1,51 @@
+<think>
+Alright, let's break down how I approached this query. The user provided two texts: a CV and a job application. My task was to extract specific information and return it in a strict JSON format without any extra text or markdown.
+
+First, I noticed the Mobility Rule is clearly stated as "Yes" in the job application form. So that's straightforward.
+
+Next, for English Proficiency, I checked both texts. The CV mentions "English: Fluent (C1/C2)", which meets the criteria since C1/C2 indicates a high proficiency. Therefore, I set this to "Yes".
+
+Looking at whether the applicant holds a doctoral degree, I reviewed the job application and CV. The job application didn't mention any PhD explicitly, and while the CV shows they're seeking a PhD position, it doesn't state that they already hold one. So, I concluded "No" for Holds-Doctoral-Degree.
+
+For Nationality, the job application states "PHANTASIA", so I included that. The languages listed were "Funny Language (native)" and English, which I mapped to the JSON structure provided.
+
+I also extracted other details like Full-name, Gender, Date-of-birth, E-Mail, Phone-number, Country-Contact, Bachelor's and Master's degrees, Year-of-graduation-Master, Skills, Programming-languages, and Languages spoken. All these were directly taken from either the job application or the CV.
+
+I made sure to format everything correctly as per the JSON structure provided in the example, ensuring all fields are present and accurate. I double-checked each piece of information against both documents to avoid missing anything important.
+</think>
+
+Here is the extracted information based on the provided texts:
+
+```json
+{
+  "Mobility-rule-compliance": "Yes",
+  "Full-name": "Super Hero",
+  "Gender": "Female",
+  "Date-of-birth": "19/09/1987",
+  "Nationality": "PHANTASIA",
+  "Country-Contact": "Phantasia",
+  "E-Mail": "abc@gmail.com",
+  "Phone-number": "+11 12345678",
+  "Bachelor-degree-details": {
+    "University-name-Bachelor": "My University",
+    "Country-Bachelor": "Phantasia",
+    "Degree-title-Bachelor": "Computer Science",
+    "Year-of-graduation-Bachelor": "2010"
+  },
+  "Master-degree-details": {
+    "University-name-Master": "Another University",
+    "Country-Master": "Phantasia",
+    "Degree-title-Master": "Master of the Universe",
+    "Year-of-graduation-Master": "2022"
+  },
+  "Skills": "Frameworks: TensorFlow, Keras, OpenCV, FSL, PsychoPy, CUDA.",
+  "Programming-languages": "Python, C++, R, MATLAB.",
+  "Languages": {
+    "Funny Language": "Native",
+    "English": "Fluent (C1/C2)"
+  },
+  "Holds-Doctoral-Degree": "No"
+}
+```
+
+This JSON object captures the key information from both the CV and the job application form.

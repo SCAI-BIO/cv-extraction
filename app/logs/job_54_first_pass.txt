@@ -1,0 +1,125 @@
+<think>
+Okay, so I'm trying to figure out how to extract the required information from the given applicant's CV and job application. The task is a bit detailed, but I'll break it down step by step.
+
+First, I need to understand the extraction rules. The user provided both the CV and the job application form responses. My goal is to pull specific data points from these documents as per the instructions.
+
+Starting with the job application text, which seems to be filled out. Let's see what information is there:
+
+- Full-name: Super Hero
+- Gender: Female
+- Date-of-birth: 19/09/1987 (I think this is day/month/year format)
+- Nationality: PHANTASIA
+- Street, Postal-code, City, Country-Contact: Gotham City, Phantasia
+- E-Mail: abc@gmail.com
+- Phone-number: +11 12345678
+
+From the job application form, they've filled in:
+
+- Mobility-rule-compliance: Yes
+- Bachelor's details:
+  - University-name-Bachelor: My University
+  - Country-Bachelor: Phantasia
+  - Degree-title-Bachelor: Computer Science
+  - Year-of-graduation-Bachelor: 2010
+
+- Master's details:
+  - University-name-Master: Another University
+  - Country-Master: Phantasia
+  - Degree-title-Master: Master of the Universe
+  - Year-of-graduation-Master: 2022
+
+Looking at the CV, under the Education section:
+
+Master's in Data Science from [University] with specialization and a thesis. Bachelor's in Computer Science from another university.
+
+But since the job application form provides specific details, I should prioritize that for structured data like education.
+
+Next, looking at the job application form, there are fields for Skills and Languages. From the form:
+
+- Languages: Funny Language (native), English.
+- Programming-languages: Python, C++, R, MATLAB.
+
+So in the CV, under languages, it says German: Native/Fluent and English: Fluent (C1/C2). But in the job application, the languages listed are Funny Language (native) and English. So I need to reconcile this. The CV might have more detailed info, but perhaps the job form is the source of truth for structured data.
+
+Looking at the mobility-rule-compliance in the job application: it's marked as Yes. That probably refers to compliance with EU mobility rules, so that's a yes.
+
+Now, looking at the education section from the job application:
+
+- Bachelor's: Computer Science from My University, Phantasia, 2010
+- Master's: Master of the Universe from Another University, Phantasia, 2022
+
+In the CV, the master's is in Data Science with specializations. But since the job form specifies the degree title as "Master of the Universe," I'll go with that.
+
+The skills section in the job application lists frameworks and programming languages. So I can note those under technical skills.
+
+From the job application, the mobility-rule-compliance is Yes, so that's straightforward.
+
+Looking at the CV, there's a mention of English being Fluent (C1/C2), which aligns with the job form indicating English proficiency but in the job form, it's listed as another language alongside Funny Language. The CV might have more details, but perhaps I should extract both sources for languages.
+
+Now, let me map each required field:
+
+Full-name: Super Hero
+Gender: Female
+Date-of-birth: 19/09/1987 (assuming dd/mm/yyyy)
+Nationality: PHANTASIA
+Country-Contact: Phantasia
+E-Mail: abc@gmail.com
+Phone-number: +11 12345678
+
+Mobility-rule-compliance: Yes
+
+Education:
+- Bachelor's: Computer Science, My University, Phantasia, 2010
+- Master's: Master of the Universe, Another University, Phantasia, 2022
+
+Skills:
+- Programming languages: Python, C++, R, MATLAB
+- Frameworks: TensorFlow, Keras, OpenCV, FSL, PsychoPy, CUDA
+
+Languages:
+- Funny Language (Native)
+- English (Fluent/C1/C2)
+
+Additional info from CV:
+Career objective mentions seeking a PhD in Data Science, which indicates they're looking for a position. Their master's thesis was on Explainable AI Models for Biomedical Image Analysis.
+
+In the job application form, under Additional Qualifications, there are bullet points about advanced knowledge and experience with certain areas, but these might not be directly needed here.
+
+Putting it all together, I need to ensure that each field is correctly extracted from both sources. The job application form provides structured data for education and contact info, while the CV adds more context like languages and skills. However, for the mobility rule compliance, it's clearly stated in the job application as Yes.
+</think>
+
+The extracted information from the applicant's documents is as follows:
+
+1. **Personal Information:**
+   - Full Name: Super Hero
+   - Gender: Female
+   - Date of Birth: 19 September 1987 (dd/mm/yyyy)
+   - Nationality: PHANTASIA
+   - Country of Contact: Phantasia
+   - Email Address: abc@gmail.com
+   - Phone Number: +11 12345678
+
+2. **Education Details:**
+   - Bachelor's Degree:
+     - Program: Computer Science
+     - University: My University
+     - Location: Phantasia
+     - Graduation Year: 2010
+   - Master's Degree:
+     - Program: Master of the Universe (Data Science)
+     - University: Another University
+     - Location: Phantasia
+     - Graduation Year: 2022
+
+3. **Skills and Expertise:**
+   - Programming Languages: Python, C++, R, MATLAB
+   - Frameworks/Tools: TensorFlow, Keras, OpenCV, FSL, PsychoPy, CUDA
+   - Language Proficiency:
+     - Funny Language: Native Speaker
+     - English: Fluent (C1/C2)
+
+4. **Additional Information:**
+   - Career Objective: Seeking a PhD in Data Science with a focus on Biomedical Image Analysis.
+   - Additional Qualifications: Experience and knowledge in advanced areas of data science, including Explainable AI Models.
+
+This structured extraction ensures all relevant information is captured from both the job application form and the CV.

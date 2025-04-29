@@ -1,0 +1,28 @@
+<think>
+Alright, I need to process the provided job application and CV texts to extract specific information into a JSON format. Let's go through each step methodically.
+
+First, looking at the Job Application Text, I see several fields filled out. The mobility rule compliance is explicitly stated as "Yes," so that's straightforward.
+
+Next, English proficiency needs checking. In the CV under languages, it mentions "English: Fluent (C1/C2)." Since C1 or C2 levels qualify, this should be marked as "Yes."
+
+For the Doctoral Degree, I check both documents. The job application mentions a Master of Science and another Master title, but nothing about a PhD. The CV states the career objective is seeking a PhD, but that doesn't mean they currently hold one. So, "Holds-Doctoral-Degree" should be "No."
+
+Regarding Visa requirements, the applicant's nationality is listed as "PHANTASIA," which isn't an EU country. Since the mobility rule compliance is yes and there's no indication of a current visa, but the form might require additional info, I'll mark it as "Yes" for now.
+
+Now, looking at the skills section in the job application, TensorFlow and Keras are listed under frameworks. The CV also mentions these under programming languages. So, including them makes sense.
+
+Putting it all together, I structure the JSON with the required fields: mobility-rule-compliance, english-proficiency, holds-doctoral-degree, visa-requirement, and skills.
+</think>
+
+```json
+{
+  "mobility-rule-compliance": "Yes",
+  "english-proficiency": "Yes",
+  "holds-doctoral-degree": "No",
+  "visa-requirement": "Yes",
+  "skills": {
+    "programming-languages": ["Python", "C++", "R", "MATLAB"],
+    "frameworks": ["TensorFlow", "Keras"]
+  }
+}
+```

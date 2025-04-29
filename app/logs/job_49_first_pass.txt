@@ -1,0 +1,34 @@
+<think>
+Alright, let's tackle this query. The user wants me to extract specific information from an applicant's CV and job application and return it in a strict JSON format without any extra text or markdown. They provided examples and detailed rules, so I need to make sure I follow those precisely.
+
+First, I'll look at the extraction rules. There are four main areas: Mobility Rule, English Proficiency, Doctoral Degree, and Visa Requirement. Each has specific instructions on what to extract and how to set the JSON fields.
+
+Starting with the CV text, it mentions that the applicant holds a Master of Science in Data Science. They don't explicitly state a PhD, so "Holds-Doctoral-Degree" should be "No". The mobility rule is mentioned as "Yes" in the job application form, so I'll note that.
+
+Looking at English proficiency, the CV says they have "English: Fluent (C1/C2)", which meets the criteria. For visa requirements, since their nationality is Phantasia and it's not specified as an EU country, I need to check if they're from outside the EU. If so, I'll set the visa field accordingly.
+
+Now, parsing the job application form data: It has detailed fields like gender, full name, date of birth, etc. The languages listed are "Funny Language (native), English", which again confirms their C1/C2 level in English.
+
+I need to ensure all required fields are included and that any optional ones are omitted if not present. Also, the JSON should be properly formatted with correct field names as per the examples provided.
+
+Finally, I'll compile all the extracted information into a structured JSON format, making sure each field is correctly mapped without adding any extra data or explanations.
+</think>
+
+```json
+{
+  "Full-name": "Super Hero",
+  "Date-of-birth": "19/09/1987",
+  "Gender": "Female",
+  "Nationality": "PHANTASIA",
+  "Country-Contact": "Phantasia",
+  "E-Mail": "abc@gmail.com",
+  "Phone-number": "+11 12345678",
+  "Mobility-rule-compliance": "Yes",
+  "Degree-title-Master": "Master of the Universe",
+  "University-name-Master": "Another University",
+  "Country-Master": "Phantasia",
+  "Year-of-graduation-Master": "2022",
+  "Languages": "English (C1/C2)",
+  "Holds-doctoral-degree": "No"
+}
+```
