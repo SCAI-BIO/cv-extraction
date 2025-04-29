@@ -42,3 +42,6 @@ app/trial.py
 # Ignore Python cache files
 __pycache__/
 *.py[cod]
+
+# Ignore the entire logs folder and everything inside
+app/logs/
