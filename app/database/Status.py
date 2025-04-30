@@ -3,12 +3,15 @@ import time
 import requests
 import sys
 import logging
+from Utilities import build_refinement_prompt
+
 
 # Add parent directory to path to import modules
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 
-from database.db_manager import DatabaseManager
+from shared_database import db
+
 from Utilities import generate_prompt, get_json, save_json_to_excel
 
 
@@ -36,99 +39,91 @@ MAX_RETRIES = 3
 
 def process_pending_jobs():
     """Background job processor that handles pending extraction jobs."""
-    db = DatabaseManager()
     print(f"Starting background job processor... Using model: {MODEL_NAME}")
     print(f"API endpoint: {OLLAMA_API_URL}")
     
     while True:
         try:
-            # Get all pending jobs
             pending_jobs = db.get_pending_jobs()
-            
             if pending_jobs:
                 print(f"Found {len(pending_jobs)} pending jobs to process")
-            
+
             for job in pending_jobs:
                 job_id = job['id']
                 pdf_filename = job['pdf_filename']
                 word_filename = job['word_filename']
-                
+                pdf_text = job["pdf_content"]
+                word_text = job["word_content"]
+
                 print(f"Processing job {job_id}: {pdf_filename} + {word_filename}")
-                
-                # Update status to processing
                 db.update_job_status(job_id, "processing")
-                
+
                 retries = 0
                 while retries < MAX_RETRIES:
                     try:
-                        # Generate prompt from uploaded content
-                        prompt = generate_prompt(job['pdf_content'], job['word_content'])
-                        
-                        # Call Ollama API with the correct format
+                        prompt = generate_prompt(pdf_text, word_text)
                         print(f"Sending request to LLM API (attempt {retries+1})...")
-                        print(f"API URL: {OLLAMA_API_URL}")
-                        print(f"Using model: {MODEL_NAME}")
-                        
-                        try:
-                            # Ollama API format: http://localhost:11434/api/generate
-                            # Check if we need to append /api/generate to the URL
-                            api_url = OLLAMA_API_URL
-                            if not api_url.endswith('/api/generate'):
-                                if api_url.endswith('/'):
-                                    api_url += 'api/generate'
-                                else:
-                                    api_url += '/api/generate'
-                            
-                            print(f"Final API URL: {api_url}")
-                            
-                            response = requests.post(
-                                api_url,
-                                json={
-                                    "model": MODEL_NAME,
-                                    "prompt": prompt,
-                                    "stream": False
-                                },
-                                headers={"Content-Type": "application/json"},
-                                timeout=3000  # Increase timeout to 5 minutes
-                            )
-                            
-                            print(f"API Response Status: {response.status_code}")
-                            
-                            if response.status_code != 200:
-                                print(f"API error: {response.status_code} - {response.text}")
-                                raise Exception(f"API returned status code {response.status_code}: {response.text}")
-                            
-                            # Extract response from Ollama format
-                            response_data = response.json()
-                            print(f"Response data keys: {response_data.keys()}")
-                            
-                            response_text = response_data.get('response', '')
-                            if not response_text:
-                                print("Warning: Empty response from API")
-                                print(f"Full response: {response_data}")
-                                raise ValueError("Empty response from LLM API")
-                            
-                            print(f"Response text length: {len(response_text)}")
-                            print(f"Response preview: {response_text[:200]}...")
-                            
-                        except requests.exceptions.RequestException as req_err:
-                            print(f"Request error: {req_err}")
-                            raise Exception(f"API request failed: {req_err}")
-                        
-                        # Process JSON response
-                        json_data = get_json(response_text)
-                        
+
+                        api_url = OLLAMA_API_URL
+                        if not api_url.endswith('/api/generate'):
+                            api_url = api_url.rstrip('/') + '/api/generate'
+
+                        response = requests.post(
+                            api_url,
+                            json={
+                                "model": MODEL_NAME,
+                                "prompt": prompt,
+                                "stream": False
+                            },
+                            headers={"Content-Type": "application/json"},
+                            timeout=3000
+                        )
+
+                        if response.status_code != 200:
+                            raise Exception(f"API returned status code {response.status_code}: {response.text}")
+
+                        response_data = response.json()
+                        response_text = response_data.get('response', '')
+                        if not response_text:
+                            raise ValueError("Empty response from LLM API")
+
+                        print(f"First pass complete. Running refinement...")
+
+                        #First-pass JSON
+                        initial_json = response_text.strip()
+
+                        #Run Second-Pass Refinement
+                        refinement_prompt = build_refinement_prompt(initial_json, pdf_text, word_text)
+                        refine_response = requests.post(
+                            api_url,
+                            json={
+                                "model": MODEL_NAME,
+                                "prompt": refinement_prompt,
+                                "stream": False
+                            },
+                            headers={"Content-Type": "application/json"},
+                            timeout=3000
+                        )
+
+                        if refine_response.status_code != 200:
+                            raise Exception(f"Refinement failed: {refine_response.status_code}: {refine_response.text}")
+
+                        refined_text = refine_response.json().get("response", "").strip()
+
+                        if not refined_text:
+                            raise ValueError("Empty refinement response")
+
+                        # Final clean JSON
+                        json_data = get_json(refined_text)
                         if not json_data:
-                            print("Failed to extract valid JSON from response")
-                            print(f"Response text: {response_text[:500]}...")
-                            raise ValueError("No valid JSON extracted from LLM response")
-                        
-                        # Save results to Excel
+                            raise ValueError("No valid JSON extracted from second-pass response")
+
+                        #Save to Excel
                         excel_filename = f"extraction_{job_id}_{pdf_filename.replace('.pdf', '')}.xlsx"
                         excel_path = os.path.join(extractions_dir, excel_filename)
                         save_json_to_excel(json_data, excel_path)
-                        
-                        # Update job as successful
+
+                        # Save successful job
                         db.update_job_status(
                             job_id, 
                             "done",
@@ -137,19 +132,18 @@ def process_pending_jobs():
                             debug_output={
                                 "model": MODEL_NAME,
                                 "prompt_length": len(prompt),
-                                "response_length": len(response_text)
+                                "response_length": len(refined_text),
+                                "raw_response": response_text
                             }
                         )
-                        
                         print(f"Job {job_id} completed successfully!")
-                        break  # Exit retry loop on success
-                    
+                        break
+
                     except Exception as processing_error:
                         print(f"Error processing job {job_id} (attempt {retries+1}): {str(processing_error)}")
                         retries += 1
-                        
+
                         if retries >= MAX_RETRIES:
-                            # Update job as failed with error details
                             db.update_job_status(
                                 job_id, 
                                 "failed",
@@ -157,12 +151,10 @@ def process_pending_jobs():
                             )
                             print(f"Job {job_id} marked as failed after {MAX_RETRIES} attempts")
                         else:
-                            # Wait before retrying
                             time.sleep(3)
-            
-            # Sleep between batches
+
             time.sleep(5)
-                
+
         except Exception as e:
             print(f"Error in main processing loop: {e}")
-            time.sleep(10)  # Longer sleep on main loop error
+            time.sleep(10)

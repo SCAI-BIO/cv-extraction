@@ -36,3 +36,9 @@ app/extractions/*.xlsx
 
 # Ignore specific files
 app/trial.py
+
+# Ignore virtual environment
+.venv/
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
