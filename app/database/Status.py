@@ -121,19 +121,22 @@ def process_pending_jobs():
                         if not json_data:
                             raise ValueError("No valid JSON extracted from response")
 
-                        # Inject data into the shared Master Excel
-                        inject_standardized_json_to_excel(
-                            json_data=json_data,
-                            template_path=EXCEL_PATH,   # using same Excel
-                            output_path=EXCEL_PATH
-                        )
+                        #Save to Excel
+                        TEMPLATE_PATH = os.getenv("EXCEL_TEMPLATE_PATH", "templates/Excel_template.xlsx")
+                        OUTPUT_PATH = os.path.join(extractions_dir, "Final_Applications_Export.xlsx")
+
+                        try:
+                            inject_standardized_json_to_excel(json_data, TEMPLATE_PATH, OUTPUT_PATH)
+                        except Exception as excel_err:
+                            raise Exception(f"Excel generation failed: {excel_err}")
+
 
                         # Save successful job
                         db.update_job_status(
                             job_id, 
                             "done",
                             extracted_data=json_data,
-                            excel_file=EXCEL_PATH,
+                            excel_file=OUTPUT_PATH,
                             debug_output={
                                 "model": MODEL_NAME,
                                 "prompt_length": len(prompt),

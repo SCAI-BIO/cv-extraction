@@ -45,3 +45,11 @@ __pycache__/
 
 # Ignore the entire logs folder and everything inside
 app/logs/
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+
+# pip cache and other user-level caches
+.cache/
+*.log
+
