@@ -2,9 +2,14 @@ import os
 import time
 import requests
 import sys
-import logging
-from Utilities import build_refinement_prompt, inject_standardized_json_to_excel
-
+from dotenv import load_dotenv
+import shutil
+from Utilities import (
+    generate_prompt,
+    get_json,
+    save_json_to_excel,
+    inject_standardized_json_to_excel
+)
 
 # Add parent directory to path to import modules
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -12,36 +17,58 @@ sys.path.append(parent_dir)
 
 from shared_database import db
 
-from Utilities import generate_prompt, get_json, save_json_to_excel
+# Load environment
+load_dotenv()
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-logging.basicConfig(level=logging.INFO)
+############ Look here is the path correct?############
 
-logger = logging.getLogger(__name__)
+EXCEL_REL_PATH = os.getenv("EXCEL_FILE_PATH", "extractions/ExcelTemplate.xlsx")
+EXCEL_PATH = os.path.normpath(os.path.join(BASE_DIR, "..", EXCEL_REL_PATH))
 
 # Default values for Ollama API
 DEFAULT_API_URL = "http://localhost:11434/api/generate"
-DEFAULT_MODEL = "deepseek-r1:14b"  # Updated to use deepseek-r1:14b
+DEFAULT_MODEL = "deepseek-r1:14b"
 
-# Load Ollama API URL from environment variable or use default
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", DEFAULT_API_URL)
 MODEL_NAME = os.getenv("OLLAMA_MODEL", DEFAULT_MODEL)
-
-logger.info("=== CV Extraction Configuration ===")
-logger.info(f"Model: {MODEL_NAME}")
 
 # Create extractions directory
 extractions_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "extractions")
 os.makedirs(extractions_dir, exist_ok=True)
 
+# Create debug output directory for raw responses
+debug_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
+os.makedirs(debug_dir, exist_ok=True)
+
 # Maximum retries before marking a job as failed
 MAX_RETRIES = 3
 
+# Go up from /app/database to /app
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+EXTRACTIONS_DIR = os.path.join(BASE_DIR, "extractions")
+TEMPLATE_EXCEL_PATH = os.path.join(EXTRACTIONS_DIR, "ExcelTemplate.xlsx")
+EXCEL_PATH = os.path.join(EXTRACTIONS_DIR, "extracted_data.xlsx")
+
+# Debug
+print("TEMPLATE PATH:", TEMPLATE_EXCEL_PATH)
+
+if not os.path.exists(TEMPLATE_EXCEL_PATH):
+    raise FileNotFoundError(f"ExcelTemplate.xlsx not found at: {TEMPLATE_EXCEL_PATH}")
+
+os.makedirs(EXTRACTIONS_DIR, exist_ok=True)
+if not os.path.exists(EXCEL_PATH):
+    shutil.copy(TEMPLATE_EXCEL_PATH, EXCEL_PATH)
+
+
+# --- Main Processing Function ---
+
 def process_pending_jobs():
-    """Background job processor that handles pending extraction jobs."""
     print(f"Starting background job processor... Using model: {MODEL_NAME}")
     print(f"API endpoint: {OLLAMA_API_URL}")
-    
+
     while True:
         try:
             pending_jobs = db.get_pending_jobs()
@@ -76,7 +103,7 @@ def process_pending_jobs():
                                 "stream": False
                             },
                             headers={"Content-Type": "application/json"},
-                            timeout=3000
+                            timeout=300
                         )
 
                         if response.status_code != 200:
@@ -87,36 +114,12 @@ def process_pending_jobs():
                         if not response_text:
                             raise ValueError("Empty response from LLM API")
 
-                        print(f"First pass complete. Running refinement...")
+                        print(f"First pass complete. Parsing response...")
 
-                        #First-pass JSON
-                        initial_json = response_text.strip()
-
-                        #Run Second-Pass Refinement
-                        refinement_prompt = build_refinement_prompt(initial_json, pdf_text, word_text)
-                        refine_response = requests.post(
-                            api_url,
-                            json={
-                                "model": MODEL_NAME,
-                                "prompt": refinement_prompt,
-                                "stream": False
-                            },
-                            headers={"Content-Type": "application/json"},
-                            timeout=3000
-                        )
-
-                        if refine_response.status_code != 200:
-                            raise Exception(f"Refinement failed: {refine_response.status_code}: {refine_response.text}")
-
-                        refined_text = refine_response.json().get("response", "").strip()
-
-                        if not refined_text:
-                            raise ValueError("Empty refinement response")
-
-                        # Final clean JSON
-                        json_data = get_json(refined_text)
+                        # Extract final clean JSON
+                        json_data = get_json(response_text.strip())
                         if not json_data:
-                            raise ValueError("No valid JSON extracted from second-pass response")
+                            raise ValueError("No valid JSON extracted from response")
 
                         #Save to Excel
                         TEMPLATE_PATH = os.getenv("EXCEL_TEMPLATE_PATH", "templates/Excel_template.xlsx")
@@ -137,7 +140,7 @@ def process_pending_jobs():
                             debug_output={
                                 "model": MODEL_NAME,
                                 "prompt_length": len(prompt),
-                                "response_length": len(refined_text),
+                                "response_length": len(response_text),
                                 "raw_response": response_text
                             }
                         )

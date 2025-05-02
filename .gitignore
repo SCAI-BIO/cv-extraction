@@ -39,7 +39,12 @@ app/trial.py
 
 # Ignore virtual environment
 .venv/
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
 
+# Ignore the entire logs folder and everything inside
+app/logs/
 # Ignore Python cache
 __pycache__/
 *.py[cod]
@@ -47,3 +52,4 @@ __pycache__/
 # pip cache and other user-level caches
 .cache/
 *.log
+
