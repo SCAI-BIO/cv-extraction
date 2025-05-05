@@ -3,13 +3,17 @@ import docx
 import json
 import pandas as pd
 import re
-<<<<<<< HEAD
 import openpyxl
 import os
 import shutil
+from typing import Dict, Any
+# logger_setup.py
+import logging
 
-=======
->>>>>>> 14b6547f0855294622f6a6623cd76782e509bb03
+logger = logging.getLogger("myapp")
+logging.basicConfig(level=logging.INFO)
+
+
 
 
 def extract_text_from_pdf(uploaded_pdf):
@@ -26,51 +30,9 @@ def extract_text_from_word(uploaded_word):
 
 def generate_prompt(pdf_text, word_text):
     return f"""
-You are a data AI and you answer questions and return answers strictly in json format with no trailing commas and no marksdown based on the text provided for academic job applications return the main inforamtion about the applicant and answer these information just ignore his address
-and mention what is asked from you and answer certain fields like ("Full-name","Date-of-birth","Gender": "Female",
-  "Nationality","Holds-Master-Degree","E-Mail","Skills and competences", "Holds-Doctoral-Degree" , "Fits mobility rules?" , "English Proficiency?" and "Visa required?") with yes or no in json format.
+Return a single valid JSON object only. Do not include markdown, explanations, thinking steps, or code blocks.
 
-
-You are given two raw texts from an applicant:
-1. Their CV (PDF or word format)
-2. Their job application (email or Word format)
-
-Your task is to answer and extract information mentioned below and return it as **strict, flat JSON** — with no markdown, code blocks, or extra text and no trailling commas.
-Apply the following extraction rules:
-
-1. **Mobility Rule**:
-   - Extract it from the application form which states it as either Yes or No.
-
-2. **English Proficiency**:
-   -only english ignore any other language 
-   - This must reflect whether the candidate likely meets the programs minimum language requirement.
-   - Set `"English Proficiency"` to `"Yes"` if **any** of the following is mentioned:
-     - An **IELTS** score of **6.5 or above** (e.g., "IELTS 7", "IELTS 8.0")
-     - A **TOEFL** score of **90 or above** (e.g., "TOEFL 94", "TOEFL iBT 100")
-     - A **language level of C1 or C2** in English.
-
-3. **Doctoral Degree**:
-   - If the applicant **explicitly states** they hold a PhD or doctorate, set `"Holds-Doctoral-Degree"` to `"Yes"`.
-   - If it is not mentioned, respond with "No".
-
-4. **Visa Requirement**:
-   - - **"Visa required?"** is set to `"No"` if the nationality is from any of the following EU countries:
-  Austria, Belgium, Bulgaria, Croatia, Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal, Romania, Slovakia, Slovenia, Spain, Sweden.
-- **"Visa required?"** is set to `"Yes"` for all any other thing except the countries mentioned not left empty it is either yes or no.
-
-5. **"Holds-Master-Degree"**: is set to yes If the applicant **explicitly states** they hold Master-Degree  set `"Holds-Master-Degree"` to `"Yes"`.
----
-
-JSON Output Format:
-
-<<<<<<< HEAD
-Output should be in json format.
-=======
-- Each field must contain a *single string value*, not lists or numbered subfields (e.g., no "Skills 0", "Skills 1").
-- Combine related entries into one line like:  
-  "Skills and competences": "Python, R, TensorFlow"
-
-The output **must** contain only the following fields:
+Extract the following fields from the applicant's CV and job application text:
 
 - "Full-name"
 - "Date-of-birth"
@@ -89,43 +51,47 @@ The output **must** contain only the following fields:
 - "English Proficiency?"
 - "Visa required?"
 
-All values must be plain strings. If a value is not mentioned or unclear, use **"Unknown"**.
+**Rules**:
+- If a field is missing or unclear, write `"Unknown"`.
+- The values for the following must be `"Yes"` or `"No"`:
+  - Holds-Master-Degree
+  - Holds-Doctoral-Degree
+  - Fits mobility rules?
+  - English Proficiency?
+  - Visa required?
+- Set `"Visa required?"` to `"No"` if the nationality is from any EU country (e.g., France, Germany, etc.); otherwise, `"Yes"`.
+- Set `"English Proficiency?"` to `"Yes"` only if C1/C2, IELTS ≥ 6.5, or TOEFL ≥ 90 is mentioned.
+- Do **not** include any lists, nested objects, or numbered keys. All values must be strings.
 
->>>>>>> 14b6547f0855294622f6a6623cd76782e509bb03
----
-
-Example Output Format (use exactly this structure):
+Return ONLY a JSON object in this structure:
 
 {{
-  "Full-name": "Jane Doe",
-  "Date-of-birth": "1993-04-21",
-  "Gender": "Female",
-  "Nationality": "Spanish",
-  "Country-Contact": "Spain",
-  "E-Mail": "jane.doe@example.com",
-  "Phone-number": "+34 123 456 789",
-  "Holds-Master-Degree": "Yes",
-  "Year-of-graduation-Master": "2020",
-  "English profiency": "English (C1),
-  "Skills and competences": "Python, R, TensorFlow, teamwork, analytical thinking",
-  "Holds-Doctoral-Degree": "No",
-  "Fits mobility rules?": "Yes",
-  "English proficiency?": "Yes",
-  "Research Experience": Alyehimer disease invistigation, Parkinson disease and lewi bodies
-  
+  "Full-name": "...",
+  "Date-of-birth": "...",
+  "Gender": "...",
+  "Nationality": "...",
+  "Country-Contact": "...",
+  "E-Mail": "...",
+  "Phone-number": "...",
+  "Holds-Master-Degree": "...",
+  "Year-of-graduation-Master": "...",
+  "Languages": "...",
+  "Skills and competences": "...",
+  "Research Experience": "...",
+  "Holds-Doctoral-Degree": "...",
+  "Fits mobility rules?": "...",
+  "English Proficiency?": "...",
+  "Visa required?": "..."
 }}
----
 
-Return your output **exactly like this** — no bullet points, no markdown, and no explanation.
-**Double Check**:
-If all fields that wanted are extracted especially Visa required, Holds Doctoral Degree and Fits mobility rules and English proficiency not any other language and answered as yes or no.
+Begin the response with `curly braces` and return nothing else.
 
 ---
 
-CV Text:
+CV TEXT:
 {pdf_text}
 
-Job Application Text:
+JOB APPLICATION TEXT:
 {word_text}
 """
 
@@ -199,268 +165,6 @@ def flatten_json(nested_json, parent_key='', sep='_'):
 
     recurse(nested_json)
     return flattened_dict
-
-def save_json_to_excel(data, filename="extracted_data.xlsx"):
-    """
-    Saves structured JSON data into an Excel file with multiple sheets.
-
-    Args:
-        data (dict): Extracted JSON data.
-        filename (str): Output Excel filename.
-
-    Returns:
-        str: Filename of the saved Excel file.
-    """
-    if not data:
-        print("No data to save.")
-        return None
-
-    with pd.ExcelWriter(filename, engine="openpyxl") as writer:
-        # Flatten entire JSON for main sheet
-        flattened_data = flatten_json(data)
-        df_main = pd.DataFrame([flattened_data])
-        df_main.to_excel(writer, sheet_name="Main Data", index=False)
-
-        # Handle lists & nested tables dynamically
-        for key, value in data.items():
-            if isinstance(value, list):  # If a list, create a new sheet
-                df_list = pd.DataFrame(value)
-                df_list.to_excel(writer, sheet_name=key[:30], index=False)  # Limit sheet name to 30 chars
-
-    return filename
-
-
-import re
-
-# def check_english_proficiency(text):
-#     """
-#     Checks if English proficiency criteria are met based on:
-#     - IELTS score >= 6.5
-#     - TOEFL score >= 90
-#     - Mention of C1 or C2
-#     """
-#     text = text.lower()
-
-#     # Check for C1 or C2
-#     if "c1" in text or "c2" in text:
-#         return "Yes"
-
-#     # Check IELTS score
-#     ielts_match = re.search(r"ielts[^0-9]*((6\.5|[7-9](?:\.5)?))", text)
-#     if ielts_match:
-#         try:
-#             score = float(ielts_match.group(1))
-#             if score >= 6.5:
-#                 return "Yes"
-#         except:
-#             pass
-
-#     # Check TOEFL score
-#     toefl_match = re.search(r"toefl[^0-9]*([0-9]{2,3})", text)
-#     if toefl_match:
-#         try:
-#             score = int(toefl_match.group(1))
-#             if score >= 90:
-#                 return "Yes"
-#         except:
-#             pass
-
-#     return "Please fill this manually"
-
-
-# def second_agent_rule_engine(llm_data: dict) -> dict:
-#     """
-#     Transforms LLM output (Agent 1) into validated, interpreted data.
-#     defining the rules here.
-#     """
-#     #Raw fields
-#     full_name = llm_data.get("Full-name", "").strip()
-#     nationality = llm_data.get("Nationality", "").strip()
-#     contact_country = llm_data.get("Country-Contact", "").strip().lower()
-#     email = llm_data.get("E-Mail", "")
-#     phone = llm_data.get("Phone-number", "")
-#     dob = llm_data.get("Date-of-birth", "")
-#     gender = llm_data.get("Gender", "")
-#     languages = llm_data.get("Languages", "")
-
-#     #Rule: Split full name
-#     name_parts = full_name.split()
-#     first_name = name_parts[0] if name_parts else ""
-#     last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
-
-#     # Rule: Mobility
-#     if "german" in nationality.lower() or "germany" in contact_country:
-#         mobility = "No"
-#     else:
-#         mobility = llm_data.get("Fits mobility rules?", "Unknown")
-
-#     # Rule: Master + year
-#     master = llm_data.get("Holds-Master-Degree", "Unknown")
-#     year_master = llm_data.get("Year-of-graduation-Master", "Unknown")
-#     try:
-#         master_before_2025 = "Yes" if int(year_master) <= 2025 else "No"
-#     except:
-#         master_before_2025 = "Unknown"
-
-#     # Rule: Doctoral Degree
-#     doctoral = llm_data.get("Holds-Doctoral-Degree", "").strip().lower()
-#     doctoral = doctoral.capitalize() if doctoral in ["yes", "no"] else "Please fill this manually"
-
-#     # Rule: English Proficiency
-#     english_proficiency = check_english_proficiency(languages)
-
-#     # Rule: Eligibility
-#     eligibility = "Yes" if (
-#         mobility == "Yes" and master == "Yes" and master_before_2025 == "Yes"
-#     ) else "No"
-
-#     # Return final row
-#     return {
-#         "First Name": first_name,
-#         "Last Name": last_name,
-#         "Email": email,
-#         "Phone Number": phone,
-#         "Date of Birth": dob,
-#         "Gender": gender,
-#         "Nationality": nationality,
-#         "Mobility Rule Met?": mobility,
-#         "Holds Master Degree?": master,
-#         "Master Degree Before 2025?": master_before_2025,
-#         "Doctoral Degree?": doctoral,
-#         "English Proficiency?": english_proficiency,
-#         "Eligibility Criteria Met?": eligibility
-#     }
-
-
-
-
-# import openpyxl
-# import os
-# from datetime import datetime
-
-# COLUMN_MAP = {
-#     "First Name": 2,
-#     "Last Name": 3,
-#     "Contact Details": 4,
-#     "Date of Birth": 5,
-#     "Gender": 6,
-#     "Fits mobility rules": 7,
-#     "Nationality": 8,
-#     "Holds/will hold a master degree or equivalent before October 2025?": 9,
-#     "Holds doctoral degree?": 10,
-#     "English proficiency": 11,
-#     "Visa required?": 12
-# }
-
-
-# def build_refinement_prompt(initial_json, pdf_text, word_text):
-#     return f"""
-# You are an AI that edits and completes structured applicant data and return it in json format that what you need to focus on.
-
-# You are given:
-# 1. A partially filled JSON object (initial_json)
-# 2. The full CV text
-# 3. The job application letter text
-
-# Your job is to:
-# - Ensure the JSON includes these three fields:
-#   1. "Research Experience"
-#   2. "Holds-Doctoral-Degree"
-#   3. "Visa required?"
-# - If any are missing, you must add them.
-# - If present but set to "Unknown", improve or complete the value based on the text.
-# - Do not modify any other field.
-# - Your output must be valid, clean JSON — with double quotes and commas where needed.
-# - If this field is missing, empty, or marked as "Unknown", you MUST extract research-related details from the CV or application.
-# - This includes things like thesis work, assistantships, internships, publications, or any mention of academic research.
-
-# ---
-
-# ### Field Logic:
-
-# 1. *Research Experience*:
-#    - Extract research-related content (e.g. "Worked on NLP thesis", "3 years research in AI,deep learning or machine learning").
-#    - If none found, use: "Unknown".
-
-# 2. *Holds-Doctoral-Degree*:
-#    - Set to "Yes" if PhD, Doctorate, "Dr.", or dissertation is mentioned.
-#    - Otherwise, set to "No".
-
-# 3. *Visa required?*:
-#    - Check "Nationality" field from initial JSON.
-#    - If it's NOT one of these countries:
-#      Austria, Belgium, Bulgaria, Croatia, Cyprus, Czech Republic, Denmark, Estonia, Finland, France,
-#      Germany, Greece, Hungary, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands,
-#      Poland, Portugal, Romania, Slovakia, Slovenia, Spain, Sweden
-#      → then: "Yes"
-#    - Else: "No"
-
-# ---
-
-# Rules:
-# - Output must be valid JSON only.
-# - Do not include markdown, explanations, or formatting.
-# - Keep the original structure and field order.
-# - Add missing fields as needed.
-
-# {{
-
-#   "Full-name": "Super Hero",
-#   "Date-of-birth": "1987-09-19",
-#   "Gender": "Female",
-#   "Nationality": "Phantasia",
-#   "Country-Contact": "Phantasia",
-#   "E-Mail": "abc@gmail.com",
-#   "Phone-number": "+11 12345678",
-#   "Mobility-rule-compliance": "Yes",
-#   "Bachelor University": "My University",
-#   "Bachelor Degree title": "Computer Science",
-#   "Year-of-graduation-Bachelor": 2010,
-#   "Master University": "Another University",
-#   "Master Degree title": "Master of the Universe",
-#   "Year-of-graduation-Master": 2022,
-#   "Skills": [
-#     "TensorFlow",
-#     "Keras",
-#     "OpenCV",
-#     "FSL",
-#     "PsychoPy",
-#     "CUDA"
-#   ],
-#   "Programming-languages": [
-#     "Python",
-#     "C++",
-#     "R",
-#     "MATLAB"
-#   ],
-#   "Languages": {{
-#     "Funny Language": "Native/Fluent",
-#     "English": "Fluent (C1/C2)"
-#   }},
-#   "Additional-Information": "N/A",
-#   "Research Experience": "Conducted research in deep learning during Master's studies; published one paper on NLP.",
-#   "Holds-Doctoral-Degree": "No",
-#   "Visa required?": "Yes"
-# }}
-
-# ---
-
-# Initial JSON:
-# {initial_json}
-
-# ---
-
-# CV Text:
-# {pdf_text}
-
-# ---
-
-# Job Application Text:
-# {word_text}
-# """
-
-
-
 
 def normalize_text(text):
     if not text:
@@ -592,233 +296,113 @@ field_map = {
 
 # --- Excel Injection Function ---
 
-def inject_standardized_json_to_excel(json_data, template_path, output_path):
+def inject_standardized_json_to_excel(json_data: Dict[str, Any], template_path: str, output_path: str) -> None:
+    """
+    Injects standardized JSON data into an Excel file, appending to existing data.
+    
+    This function takes JSON data extracted from CVs and application forms, standardizes it,
+    and appends it to an existing Excel file. If the output file doesn't exist, it creates
+    a new one from the template.
+    
+    Args:
+        json_data (Dict[str, Any]): The JSON data to inject, containing applicant information
+        template_path (str): Path to the Excel template file
+        output_path (str): Path where the Excel file should be saved/appended to
+        
+    Raises:
+        FileNotFoundError: If the template file doesn't exist
+        ValueError: If the JSON data is invalid or missing required fields
+        Exception: For any other errors during Excel operations
+    """
+    # If output file doesn't exist, copy from template
     if not os.path.exists(output_path):
+        if not os.path.exists(template_path):
+            raise FileNotFoundError(f"Template file not found at {template_path}")
         shutil.copy(template_path, output_path)
+        logger.info(f"Created new output file from template at: {output_path}")
 
-    wb = openpyxl.load_workbook(output_path)
-    ws = wb.active
-
-    headers = extract_combined_headers(ws)
-    normalized_headers = [normalize_text(h) if h else "" for h in headers]
-
-    flat_json = {}
-    for k, v in json_data.items():
-        if isinstance(v, dict):
-            for subk, subv in v.items():
-                flat_json[f"{normalize_text(k)}_{normalize_text(subk)}"] = subv
-        else:
-            flat_json[normalize_text(k)] = v
-
-    full_name = json_data.get("Full-name", "") or json_data.get("Name", "")
-    first_name, last_name = split_full_name(full_name)
-
-    language_info = json_data.get("Languages", "")
-    if isinstance(language_info, dict):
-        language_info = " ".join(language_info.values())
-
-    row = 7
-    while ws.cell(row=row, column=1).value:
-        row += 1
-
-    for col_idx, header in enumerate(headers, 1):
-        if not header:
-            ws.cell(row=row, column=col_idx, value="Filled manually")
-            continue
-
-        norm_header = normalize_text(header)
-        value = "Filled manually"
-
-        for expected, aliases in field_map.items():
-            expected_norm = normalize_text(expected)
-            if expected_norm in norm_header:
-                for alias in aliases:
-                    alias = normalize_text(alias)
-                    for flat_key, flat_val in flat_json.items():
-                        if alias in flat_key:
-                            value = flat_val
-                            break
-                    if value != "Filled manually":
-                        break
-                break
-
-<<<<<<< HEAD
-        if "first name" in norm_header:
-            value = first_name
-        elif "last name" in norm_header:
-            value = last_name
-        elif "english proficiency?" in norm_header:
-            value = check_english_proficiency_from_text(language_info)
-        elif "holds/will hold a master degree" in norm_header:
-            value = detect_master_degree(flat_json)
-        elif "holds doctoral degree?" in norm_header:
-            value = detect_doctoral_degree(flat_json)
-        elif "visa required?" in norm_header:
-            value = detect_visa_required(flat_json)
-
-        if isinstance(value, list):
-            value = "; ".join(map(str, value))
-
-        ws.cell(row=row, column=col_idx, value=value)
-
-    wb.save(output_path)
-    print("Data successfully written to Excel.")
-=======
-def build_refinement_prompt(initial_json, pdf_text, word_text):
-    return f"""
-You are an intelligent assistant that revises and completes JSON data extracted from academic job applications.
-
-You are provided with:
-1. A partially filled JSON object (initial_json)
-2. Raw CV text
-3. Job application text
-
----
-
-### TASKS
-
-Your job is to:
-1. *Ensure* these fields are included and correctly filled:
-   - "Research Experience"
-   - "Holds-Doctoral-Degree"
-   - "Visa required?"
-
-2. *Fix any malformed JSON* (e.g., use double quotes, commas, colons correctly).
-
-3. *Only modify or add* the three fields above — leave all other fields untouched.
-
-4. Return a clean, valid JSON response *with no extra explanation*.
-
----
-
-### LOGIC FOR FIELDS:
-
-*1. "Research Experience":*
-- Look for evidence of academic research, thesis work, internships, research assistant roles, or publications.
-- Extract a short summary like:
-  - "Worked on deep learning thesis for 1 year."
-  - "Research assistant in AI lab during Master's."
-- If none found, use: "Unknown"
-
-*2. "Holds-Doctoral-Degree":*
-- Set to "Yes" if the text contains:
-  - "PhD", "Doctorate", "Dr.", "dissertation"
-- Else, set to "No"
-
-*3. "Visa required?":*
-- Check "Nationality" field from the JSON.
-- If NOT from one of these countries, set to "Yes":
-  Austria, Belgium, Bulgaria, Croatia, Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany,
-  Greece, Hungary, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal,
-  Romania, Slovakia, Slovenia, Spain, Sweden
-- Else, set to "No"
-
----
-
-### FORMAT RULES:
-- Output must be *pure JSON* (no explanation, no markdown).
-- All field names and values must be enclosed in double quotes.
-- Do not include text outside the JSON block.
-- Ensure trailing commas are avoided.
-
----
-
-### INPUT
-
-Initial JSON:
-{initial_json}
-
-CV Text:
-{pdf_text}
-
-Job Application Text:
-{word_text}
-"""
-
-
-
-
-
-
-
-def extract_combined_headers(ws, header_rows=[4, 5, 6]):
-    headers = []
-    max_col = ws.max_column
-    for col in range(1, max_col + 1):
-        combined = []
-        for row in header_rows:
-            val = ws.cell(row=row, column=col).value
-            if val:
-                combined.append(str(val).strip())
-        headers.append(" ".join(combined).strip() if combined else None)
-    return headers
-
-
-def standardize_row_to_template(row):
-    output = {}
     try:
-        full_name = row.get("Full-name") or row.get("Name") or row.get("full_name") or ""
-        parts = full_name.strip().split()
-        output["First Name"] = parts[0] if parts else ""
-        output["Last Name"] = " ".join(parts[1:]) if len(parts) > 1 else ""
+        # Load the workbook
+        wb = openpyxl.load_workbook(output_path)
+        ws = wb.active
 
-        field_map = {
-            "Gender": ["Gender", "gender"],
-            "Date of birth": ["Date-of-birth", "dob", "date_of_birth"],
-            "Nationality": ["Nationality", "Country-Contact", "Country"],
-            "Contact details (e.g. email)": ["email", "E-Mail", "Email"],
-            "Phone number": ["phone_number", "Phone", "Phone-number"],
-            "Fits mobility rules? (...)": ["Mobility-rule-compliance", "Fits mobility rules?"],
-            "Holds doctoral degree?": ["Holds-Doctoral-Degree"],
-            "Visa required?": ["Visa_required", "Visa required?"],
-        }
+        # Get headers
+        headers = extract_combined_headers(ws)
+        normalized_headers = [normalize_text(h) if h else "" for h in headers]
 
-        for field, keys in field_map.items():
-            output[field] = next((row[k] for k in keys if k in row and row[k]), "Filled manually")
+        # Flatten the JSON data
+        flat_json = {}
+        for k, v in json_data.items():
+            if isinstance(v, dict):
+                for subk, subv in v.items():
+                    flat_json[f"{normalize_text(k)}_{normalize_text(subk)}"] = subv
+            else:
+                flat_json[normalize_text(k)] = v
 
-        # Skills
-        skills = [str(v).strip() for k, v in row.items() if "skill" in k.lower()]
-        output["Skills and Competencies  (Max 5 Points)"] = "; ".join(skills) if skills else "Filled manually"
+        # Extract name information
+        full_name = json_data.get("Full-name", "") or json_data.get("Name", "")
+        if not full_name:
+            raise ValueError("Missing required field: Full-name")
+        first_name, last_name = split_full_name(full_name)
 
-        # Research experience
-        research = [str(row[k]) for k in ["Research Experience", "Internships", "Projects"] if k in row and row[k]]
-        output["Research Experience (Max 5 Points)"] = "; ".join(research) if research else "Filled manually"
+        # Extract language information
+        language_info = json_data.get("Languages", "")
+        if isinstance(language_info, dict):
+            language_info = " ".join(language_info.values())
 
-        # English proficiency
-        lang = " ".join(str(row.get(k, "")).lower() for k in row if "english" in k.lower() or "language" in k.lower())
-        keywords = ["english", "fluent", "native", "c1", "c2", "ielts", "toefl", "duolingo", "pte"]
-        output["English proficiency"] = "Yes" if any(k in lang for k in keywords) else "No"
+        # Find the next empty row
+        row = 7  # Start after headers
+        while ws.cell(row=row, column=1).value:
+            row += 1
+
+        # Write data to each column
+        for col_idx, header in enumerate(headers, 1):
+            if not header:
+                ws.cell(row=row, column=col_idx, value="Filled manually")
+                continue
+
+            norm_header = normalize_text(header)
+            value = "Filled manually"
+
+            # Map fields based on header
+            for expected, aliases in field_map.items():
+                expected_norm = normalize_text(expected)
+                if expected_norm in norm_header:
+                    for alias in aliases:
+                        alias = normalize_text(alias)
+                        for flat_key, flat_val in flat_json.items():
+                            if alias in flat_key:
+                                value = flat_val
+                                break
+                        if value != "Filled manually":
+                            break
+                    break
+
+            # Special handling for specific fields
+            if "first name" in norm_header:
+                value = first_name
+            elif "last name" in norm_header:
+                value = last_name
+            elif "english proficiency" in norm_header:
+                value = check_english_proficiency_from_text(language_info)
+            elif "holds/will hold a master degree" in norm_header:
+                value = detect_master_degree(flat_json)
+            elif "holds doctoral degree?" in norm_header:
+                value = detect_doctoral_degree(flat_json)
+            elif "visa required?" in norm_header:
+                value = detect_visa_required(flat_json)
+
+            # Handle list values
+            if isinstance(value, list):
+                value = "; ".join(map(str, value))
+
+            # Write the value to the cell
+            ws.cell(row=row, column=col_idx, value=value)
+
+        # Save the workbook
+        wb.save(output_path)
+        logger.info(f"Data successfully appended to row {row} in {output_path}")
 
     except Exception as e:
-        print(f"Standardization error: {e}")
-    return output
-
-
-def inject_standardized_json_to_excel(json_data, template_path, output_path):
-    if not os.path.exists(output_path):
-        # If output doesn't exist, copy the template as the base
-        import shutil
-        shutil.copy(template_path, output_path)
-
-    wb = openpyxl.load_workbook(output_path)
-    ws = wb.active
-
-    headers = extract_combined_headers(ws)
-    standardized_row = standardize_row_to_template(json_data)
-    norm_row = {k.lower().strip(): v for k, v in standardized_row.items()}
-
-    # Start inserting after headers (assume headers are rows 4–6)
-    insert_row_index = 7
-    while ws.cell(row=insert_row_index, column=1).value:
-        insert_row_index += 1
-
-    for col_idx, header in enumerate(headers, 1):
-        if not header:
-            ws.cell(row=insert_row_index, column=col_idx, value="Filled manually")
-            continue
-        norm_header = header.lower().strip()
-        value = norm_row.get(norm_header, "Filled manually")
-        ws.cell(row=insert_row_index, column=col_idx, value=value)
-
-    wb.save(output_path)
->>>>>>> 14b6547f0855294622f6a6623cd76782e509bb03
+        logger.error(f"Error injecting data to Excel: {str(e)}")
+        raise

@@ -17,7 +17,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # Initialize database manager
 from shared_database import db
 
-from database.Status import process_pending_jobs
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -41,10 +41,13 @@ st.sidebar.info(f"API endpoint: {OLLAMA_API_URL}")
 extractions_dir = os.path.join(os.path.dirname(__file__), "extractions")
 os.makedirs(extractions_dir, exist_ok=True)
 
-# Start background processor in a separate thread (starts it in the background)
-#demon True to stop if the tool was closed 
-processor_thread = threading.Thread(target=process_pending_jobs, daemon=True)
+from database.Status import Status
+
+# Start background processor in a separate thread using the Status class
+status = Status()
+processor_thread = threading.Thread(target=status.process_all_pending_jobs, daemon=True)
 processor_thread.start()
+
 
 unique_key = "download_button_" + str(datetime.now().strftime("%Y%m%d%H%M%S"))
 
@@ -59,7 +62,6 @@ st.download_button(
 
 # Add tabs for different functionalities
 tab1, tab2, tab3 = st.tabs(["Upload Documents", "View Previous Extractions","Bulk Upload"])
-
 with tab1:
     # File uploaders for PDF and Word files
     pdf_file = st.file_uploader("Upload a CV (PDF or Word)", type=["pdf", "docx"])
@@ -69,8 +71,10 @@ with tab1:
     st.caption("You can paste the job application instead of uploading a Word document.")
 
     if pdf_file and (word_file or manual_word_text):
+        # Extract text from job application
         word_text = extract_text_from_word(word_file) if word_file else manual_word_text
-         # Extract text based on file type
+
+        # Extract text based on CV file type
         if pdf_file.name.endswith(".pdf"):
             pdf_text = extract_text_from_pdf(pdf_file)
         elif pdf_file.name.endswith(".docx"):
@@ -79,13 +83,28 @@ with tab1:
             st.error("Unsupported CV file type. Please upload a PDF or Word document.")
             pdf_text = ""
 
-
         with st.expander("View Extracted Text"):
             st.text_area("PDF Text", pdf_text, height=200)
             st.text_area("Job Application Text", word_text, height=200)
 
         if st.button("Submit Job for Processing"):
             try:
+                with st.spinner("Extracting and validating text..."):
+                    # Extract text again for safety (in case of refresh or button hit early)
+                    word_text = extract_text_from_word(word_file) if word_file else manual_word_text
+                    pdf_text = extract_text_from_pdf(pdf_file) if pdf_file.name.endswith(".pdf") else extract_text_from_word(pdf_file)
+
+                    # Debugging aid
+                    print(f"[DEBUG] PDF text length: {len(pdf_text)} | Word text length: {len(word_text)}")
+
+                    # Validate content
+                    if not pdf_text.strip():
+                        st.error("The CV file appears to be empty or unreadable.")
+                        st.stop()
+                    if not word_text.strip():
+                        st.error("The job application appears to be empty or unreadable.")
+                        st.stop()
+
                 with st.spinner("Adding job to queue..."):
                     job_id = db.add_job(
                         pdf_file.name,
@@ -102,6 +121,7 @@ with tab1:
             st.warning("Please upload a CV (PDF).")
         elif not (word_file or manual_word_text):
             st.warning("Please upload a job application (Word) or paste the text manually.")
+
 
 with tab2:
     st.header("Previous Extractions")
