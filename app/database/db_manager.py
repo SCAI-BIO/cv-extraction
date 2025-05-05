@@ -165,31 +165,15 @@ class DatabaseManager:
             except sqlite3.Error as e:
                 print(f"Error fetching pending jobs: {e}")
                 return []
-    def get_pending_jobs(self):
-        """Fetch all jobs that are still pending."""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT id, pdf_filename, word_filename, pdf_content, word_content, status 
-                FROM cv_extractions WHERE status = 'pending'
-            """)
-            jobs = cursor.fetchall()
+        
+    def get_job_data(self, job_id):
+        """Alias for get_extraction_by_id to match expected method name."""
+        return self.get_extraction_by_id(job_id)
 
-            # Convert results to a list of dictionaries
-            jobs_list = []
-            for job in jobs:
-                jobs_list.append({
-                    "id": job[0],
-                    "pdf_filename": job[1],
-                    "word_filename": job[2],
-                    "pdf_content": job[3],
-                    "word_content": job[4],
-                    "status": job[5]
-                })
+    def mark_job_completed(self, job_id):
+        """Mark a job as completed."""
+        self.update_job_status(job_id, status="done")
 
-            return jobs_list  # Returns a list of pending jobs
-
-        except sqlite3.Error as e:
-            print(f"Error fetching pending jobs: {e}")
-            return []
+    def mark_job_failed(self, job_id):
+        """Mark a job as failed."""
+        self.update_job_status(job_id, status="failed")

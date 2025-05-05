@@ -1,168 +1,165 @@
 import os
-import time
-import requests
 import sys
-from dotenv import load_dotenv
+import time
 import shutil
+import requests
+import logging
+from dotenv import load_dotenv
+from datetime import datetime
+from typing import Optional, Dict, Any
+
 from Utilities import (
     generate_prompt,
     get_json,
-    save_json_to_excel,
     inject_standardized_json_to_excel
 )
 
-# Add parent directory to path to import modules
+# Add parent dir to path for shared_database import
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
-
 from shared_database import db
 
-# Load environment
+# Environment
 load_dotenv()
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-############ Look here is the path correct?############
+# Directories
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EXTRACTIONS_DIR = os.path.join(BASE_DIR, "extractions")
+TEMPLATE_EXCEL_PATH = os.path.join(EXTRACTIONS_DIR, "ExcelTemplate.xlsx")
+OUTPUT_EXCEL_PATH = os.path.join(EXTRACTIONS_DIR, "Final_Applications_Export.xlsx")
 
-EXCEL_REL_PATH = os.getenv("EXCEL_FILE_PATH", "extractions/ExcelTemplate.xlsx")
-EXCEL_PATH = os.path.normpath(os.path.join(BASE_DIR, "..", EXCEL_REL_PATH))
+# Ensure required folders exist
+os.makedirs(EXTRACTIONS_DIR, exist_ok=True)
 
-# Default values for Ollama API
+# Ensure template exists
+if not os.path.exists(TEMPLATE_EXCEL_PATH):
+    logger.error(f"Template not found: {TEMPLATE_EXCEL_PATH}")
+    raise FileNotFoundError(f"Template not found: {TEMPLATE_EXCEL_PATH}")
+
+# Create output file from template if needed
+if not os.path.exists(OUTPUT_EXCEL_PATH):
+    shutil.copy(TEMPLATE_EXCEL_PATH, OUTPUT_EXCEL_PATH)
+    logger.info(f"Created output Excel file: {OUTPUT_EXCEL_PATH}")
+
+# API setup
 DEFAULT_API_URL = "http://localhost:11434/api/generate"
 DEFAULT_MODEL = "deepseek-r1:14b"
-
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", DEFAULT_API_URL)
 MODEL_NAME = os.getenv("OLLAMA_MODEL", DEFAULT_MODEL)
 
-# Create extractions directory
-extractions_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "extractions")
-os.makedirs(extractions_dir, exist_ok=True)
-
-# Create debug output directory for raw responses
-debug_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
-os.makedirs(debug_dir, exist_ok=True)
-
-# Maximum retries before marking a job as failed
 MAX_RETRIES = 3
 
-# Go up from /app/database to /app
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-EXTRACTIONS_DIR = os.path.join(BASE_DIR, "extractions")
-TEMPLATE_EXCEL_PATH = os.path.join(EXTRACTIONS_DIR, "ExcelTemplate.xlsx")
-EXCEL_PATH = os.path.join(EXTRACTIONS_DIR, "extracted_data.xlsx")
+class Status:
+    def __init__(self):
+        self.db = db
+        self.template_path = TEMPLATE_EXCEL_PATH
+        self.output_path = OUTPUT_EXCEL_PATH
 
-# Debug
-print("TEMPLATE PATH:", TEMPLATE_EXCEL_PATH)
+    def _generate_prompt(self, pdf_text: str, word_text: str) -> str:
+        return generate_prompt(pdf_text, word_text)
 
-if not os.path.exists(TEMPLATE_EXCEL_PATH):
-    raise FileNotFoundError(f"ExcelTemplate.xlsx not found at: {TEMPLATE_EXCEL_PATH}")
-
-os.makedirs(EXTRACTIONS_DIR, exist_ok=True)
-if not os.path.exists(EXCEL_PATH):
-    shutil.copy(TEMPLATE_EXCEL_PATH, EXCEL_PATH)
-
-
-# --- Main Processing Function ---
-
-def process_pending_jobs():
-    print(f"Starting background job processor... Using model: {MODEL_NAME}")
-    print(f"API endpoint: {OLLAMA_API_URL}")
-
-    while True:
+    def _get_llm_response(self, prompt: str) -> str:
         try:
-            pending_jobs = db.get_pending_jobs()
-            if pending_jobs:
-                print(f"Found {len(pending_jobs)} pending jobs to process")
+            logger.info("Sending request to LLM API...")
+            response = requests.post(
+                OLLAMA_API_URL,
+                json={
+                    "model": MODEL_NAME,
+                    "prompt": prompt,
+                    "stream": False
+                },
+                headers={"Content-Type": "application/json"},
+                timeout=3000
+            )
+            if response.status_code != 200:
+                raise Exception(f"API returned {response.status_code}: {response.text}")
+            data = response.json()
+            return data.get("response", "")
+        except Exception as e:
+            logger.error(f"LLM request failed: {e}")
+            raise
 
-            for job in pending_jobs:
-                job_id = job['id']
-                pdf_filename = job['pdf_filename']
-                word_filename = job['word_filename']
-                pdf_text = job["pdf_content"]
-                word_text = job["word_content"]
+    def process_job(self, job_id: int) -> Optional[Dict[str, Any]]:
+        try:
+            job_data = self.db.get_job_data(job_id)
+            if not job_data:
+                logger.warning(f"No job data for ID {job_id}")
+                return None
 
-                print(f"Processing job {job_id}: {pdf_filename} + {word_filename}")
-                db.update_job_status(job_id, "processing")
+            pdf_text = job_data.get("pdf_content", "")
+            word_text = job_data.get("word_content", "")
 
-                retries = 0
-                while retries < MAX_RETRIES:
-                    try:
-                        prompt = generate_prompt(pdf_text, word_text)
-                        print(f"Sending request to LLM API (attempt {retries+1})...")
+            if not pdf_text or not word_text:
+                logger.warning(f"Missing text for job {job_id}")
+                return None
 
-                        api_url = OLLAMA_API_URL
-                        if not api_url.endswith('/api/generate'):
-                            api_url = api_url.rstrip('/') + '/api/generate'
+            prompt = self._generate_prompt(pdf_text, word_text)
+            response = self._get_llm_response(prompt)
 
-                        response = requests.post(
-                            api_url,
-                            json={
-                                "model": MODEL_NAME,
-                                "prompt": prompt,
-                                "stream": False
-                            },
-                            headers={"Content-Type": "application/json"},
-                            timeout=300
-                        )
+            print(f"[DEBUG] Raw LLM response for job {job_id}:\n{response[:3000]}")  # Only show first 500 chars
 
-                        if response.status_code != 200:
-                            raise Exception(f"API returned status code {response.status_code}: {response.text}")
+            json_data = get_json(response)
+            if not json_data:
+                logger.error(f"Invalid JSON for job {job_id}")
+                self.db.update_job_status(
+                    job_id,
+                    status="failed",
+                    debug_output={"error": "Invalid JSON", "raw_response": response}
+                )
+                return None
 
-                        response_data = response.json()
-                        response_text = response_data.get('response', '')
-                        if not response_text:
-                            raise ValueError("Empty response from LLM API")
-
-                        print(f"First pass complete. Parsing response...")
-
-                        # Extract final clean JSON
-                        json_data = get_json(response_text.strip())
-                        if not json_data:
-                            raise ValueError("No valid JSON extracted from response")
-
-                        #Save to Excel
-                        TEMPLATE_PATH = os.getenv("EXCEL_TEMPLATE_PATH", "templates/Excel_template.xlsx")
-                        OUTPUT_PATH = os.path.join(extractions_dir, "Final_Applications_Export.xlsx")
-
-                        try:
-                            inject_standardized_json_to_excel(json_data, TEMPLATE_PATH, OUTPUT_PATH)
-                        except Exception as excel_err:
-                            raise Exception(f"Excel generation failed: {excel_err}")
-
-
-                        # Save successful job
-                        db.update_job_status(
-                            job_id, 
-                            "done",
-                            extracted_data=json_data,
-                            excel_file=OUTPUT_PATH,
-                            debug_output={
-                                "model": MODEL_NAME,
-                                "prompt_length": len(prompt),
-                                "response_length": len(response_text),
-                                "raw_response": response_text
-                            }
-                        )
-                        print(f"Job {job_id} completed successfully!")
-                        break
-
-                    except Exception as processing_error:
-                        print(f"Error processing job {job_id} (attempt {retries+1}): {str(processing_error)}")
-                        retries += 1
-
-                        if retries >= MAX_RETRIES:
-                            db.update_job_status(
-                                job_id, 
-                                "failed",
-                                debug_output={"error": str(processing_error)}
-                            )
-                            print(f"Job {job_id} marked as failed after {MAX_RETRIES} attempts")
-                        else:
-                            time.sleep(3)
-
-            time.sleep(5)
+            try:
+                inject_standardized_json_to_excel(json_data, self.template_path, self.output_path)
+                logger.info(f"Successfully processed job {job_id}")
+                return json_data
+            except Exception as e:
+                logger.error(f"Failed to write to Excel for job {job_id}: {e}")
+                self.db.update_job_status(
+                    job_id,
+                    status="failed",
+                    debug_output={"error": f"Excel save failed: {e}", "raw_response": response}
+                )
+                return None
 
         except Exception as e:
-            print(f"Error in main processing loop: {e}")
-            time.sleep(10)
+            logger.error(f"Error processing job {job_id}: {e}")
+            self.db.update_job_status(
+                job_id,
+                status="failed",
+                debug_output={"error": f"Processing exception: {e}"}
+            )
+            return None
+
+
+            inject_standardized_json_to_excel(json_data, self.template_path, self.output_path)
+            logger.info(f"Processed job {job_id}")
+            return json_data
+
+        except Exception as e:
+            logger.error(f"Error in job {job_id}: {e}")
+            return None
+
+    def process_all_pending_jobs(self):
+        try:
+            pending_jobs = self.db.get_pending_jobs()
+            if not pending_jobs:
+                logger.info("No pending jobs found")
+                return
+
+            logger.info(f"Found {len(pending_jobs)} jobs")
+            for job in pending_jobs:
+                job_id = job["id"]
+                result = self.process_job(job_id)
+                if result:
+                    self.db.mark_job_completed(job_id)
+                    logger.info(f"Completed job {job_id}")
+                else:
+                    self.db.mark_job_failed(job_id)
+                    logger.error(f"Failed job {job_id}")
+        except Exception as e:
+            logger.error(f"Error processing jobs: {e}")
